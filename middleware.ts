@@ -1,7 +1,7 @@
 // middleware.ts - VERSION SANS NEXTAUTH
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { authRoutes, profileSetupRoute, DEFAULT_REDIRECT, protectedRoutes } from "./ts/routes"
+import { authRoutes, protectedRoutes, profileSetupRoute, DEFAULT_REDIRECT } from "./ts/routes"
 
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl
@@ -17,7 +17,7 @@ export function middleware(request: NextRequest) {
     
     const isLoggedIn = !!sessionToken
     const isAuthRoute = authRoutes.includes(pathname)
-    const isProtectedRoutes = protectedRoutes.includes(pathname)
+    const isPublicRoute = protectedRoutes.includes(pathname)
     const isProfileSetup = pathname === profileSetupRoute
 
     // Si connecté et sur route d'auth, rediriger vers accueil
@@ -25,8 +25,8 @@ export function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL(DEFAULT_REDIRECT, request.url))
     }
 
-   // Si non connecté et route protégée (ou profileSetup), rediriger vers signIn
-    if (!isLoggedIn && (isProtectedRoutes || isProfileSetup)) {
+    // Si non connecté et route protégée
+    if (!isLoggedIn && !isPublicRoute && !isAuthRoute) {
         return NextResponse.redirect(new URL('/signIn', request.url))
     }
 
