@@ -1,5 +1,8 @@
 // middleware.ts
-import { auth } from "./ts/auth"
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt' // ✅ Léger, pas de Prisma
+
 import { 
     authRoutes, 
     DEFAULT_REDIRECT, 
@@ -7,9 +10,17 @@ import {
     profileSetupRoute 
 } from "./ts/routes"
 
-export default auth((req) => {
+export async function middleware(req: NextRequest) {
     const { nextUrl } = req
-    const isLoggedIn = !!req.auth  // ✅ NextAuth gère la session
+    
+    // ✅ Récupérer le token JWT (contient déjà user.name, role, etc.)
+    const token = await getToken({ 
+        req, 
+        secret: process.env.AUTH_SECRET 
+    })
+    
+    const isLoggedIn = !!token
+    const hasCompletedProfile = !!token?.name // ✅ Votre logique actuelle
 
     const isAuthRoute = authRoutes.includes(nextUrl.pathname)
     const isProtectedRoute = protectedRoutes.some(route => {
@@ -22,48 +33,42 @@ export default auth((req) => {
 
     // Permettre les routes API
     if (nextUrl.pathname.startsWith('/api/')) {
-        return
+        return NextResponse.next()
     }
 
     if (isLoggedIn) {
-        const hasCompletedProfile = !!req.auth?.user?.name
-
         // Redirection vers setup si profil incomplet
         if (!hasCompletedProfile && !isProfileSetup) {
-            return Response.redirect(new URL(profileSetupRoute, nextUrl))
+            return NextResponse.redirect(new URL(profileSetupRoute, nextUrl))
         }
 
         // Redirection depuis setup si profil complet
         if (hasCompletedProfile && isProfileSetup) {
-            return Response.redirect(new URL(DEFAULT_REDIRECT, nextUrl))
+            return NextResponse.redirect(new URL(DEFAULT_REDIRECT, nextUrl))
         }
 
         // Redirection depuis routes auth si connecté
         if (isAuthRoute) {
             const redirectUrl = hasCompletedProfile ? DEFAULT_REDIRECT : profileSetupRoute
-            return Response.redirect(new URL(redirectUrl, nextUrl))
+            return NextResponse.redirect(new URL(redirectUrl, nextUrl))
         }
 
-        return
+        return NextResponse.next()
     }
 
     // Non connecté : bloquer les routes protégées
     if (isProtectedRoute || isProfileSetup) {
-        return Response.redirect(new URL('/signIn', nextUrl))
+        return NextResponse.redirect(new URL('/signIn', nextUrl))
     }
 
-    // Autoriser les routes auth pour non-connectés
-    if (isAuthRoute) {
-        return
-    }
-})
+    return NextResponse.next()
+}
 
 export const config = {
     matcher: [
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
-
 
 
 
