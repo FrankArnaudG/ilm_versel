@@ -1,11 +1,18 @@
 
-//les routes de vu public
-export const publicRoutes = [
-    "/",
-    "/view",
-    "/Guadeloupe",
-    "/Martinique",
-    "/Guyane"
+// //les routes de vu public
+// export const publicRoutes = [
+//     "/",
+//     "/view",
+//     "/Guadeloupe",
+//     "/Martinique",
+//     "/Guyane"
+// ]
+export const protectedRoutes = [
+    "/view_admin/ilm2",
+    "/profile",
+    "/profile/*",        // Protège /profile/edit, /profile/settings, etc.
+    "/admin",
+    "/admin/*",          // Protège toute la section admin
 ]
 
 //les routes d'authentifications
