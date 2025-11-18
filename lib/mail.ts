@@ -6,7 +6,7 @@ const domain = process.env.ILM_URL || 'http://localhost:3000'
 
 /**
  * Envoie un email de vérification avec un lien de confirmation
- */
+*/
 export const sendVerificationEmail = async (email: string, token: string) => {
     const confirmLink = `${domain}/verify-email?token=${token}`
 

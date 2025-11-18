@@ -8,10 +8,10 @@
 //     "/Guyane"
 // ]
 export const protectedRoutes = [
-    "/view_admin/ilm2",
-    "/profile",
-    "/profile/*",        // Protège /profile/edit, /profile/settings, etc.
-    "/admin",
+    // "/view_admin/ilm2",
+    // "/profile",
+    // "/profile/*",        // Protège /profile/edit, /profile/settings, etc.
+    // "/admin",
     "/admin/*",          // Protège toute la section admin
 ]
 
