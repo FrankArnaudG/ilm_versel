@@ -7,9 +7,9 @@ import { NextResponse } from "next/server";
  * Mapping des localités vers leurs IDs dans la base de données
  */
 export const LOCALITY_IDS = {
-  Martinique: 'cmhdemwlf000exd6k9xme6c3z',
-  Guadeloupe: 'cmhdewrpn000lxd6k3gkef4rz',
-  Guyane: 'cmhp99zbd0007xd3wax98iddg',
+  Martinique: 'cmi4snknd0001l504k6gnqooe',
+  Guadeloupe: 'cmi4sphir0005l504w3hc5iz6',
+  Guyane: 'cmi4ru9fr0001lb04afmsnkf4',
 } as const;
 
 /**
