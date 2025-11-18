@@ -1,0 +1,16 @@
+-- Migration for offline_stores_locations
+-- This table already exists in the database (created via prisma db push)
+-- This is an empty migration to mark the current state
+-- The table offline_stores_locations already exists with:
+-- - id (TEXT, PRIMARY KEY)
+-- - nom (TEXT, NOT NULL)
+-- - departement (TEXT, NOT NULL)
+-- - adresse (TEXT, NOT NULL)
+-- - latitude (DECIMAL(10,8), NOT NULL)
+-- - longitude (DECIMAL(11,8), NOT NULL)
+-- - telephone (TEXT, NULLABLE)
+-- - google_map_link (TEXT, NULLABLE)
+-- - createdAt (TIMESTAMP(3), NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+-- - updatedAt (TIMESTAMP(3), NOT NULL)
+-- - Index on departement
+-- No changes needed as the table already exists

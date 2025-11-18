@@ -1,0 +1,282 @@
+// import { db } from "@/lib/db";
+// import { hasPermission } from "@/lib/permissions";
+// import { Role, RecommendationType } from "@prisma/client";
+// import { NextResponse } from "next/server";
+
+// export async function POST(request: Request) {
+//   try {
+//     const payload = await request.json();
+    
+//     // ✅ CORRECTION : Ne pas déstructurer directement, utiliser payload
+//     console.log('📥 Payload reçu:', {
+//       hasDesignation: !!payload.designation,
+//       hasBrand: !!payload.brand,
+//       hasReference: !!payload.reference,
+//       hasCategory: !!payload.category,
+//       colorsCount: payload.colors?.length,
+//       variantsCount: payload.variants?.length,
+//       recommendationsCount: payload.recommendedProducts?.length
+//     });
+
+//     // ===========================
+//     // 1. VÉRIFICATIONS DE BASE
+//     // ===========================
+    
+//     if (!payload.user_id) {
+//       return NextResponse.json({ message: 'Accès refusé - user_id manquant' }, { status: 403 });
+//     }
+
+//     if (!payload.designation || !payload.brand || !payload.reference || !payload.category) {
+//       console.error('❌ Champs manquants:', {
+//         designation: payload.designation,
+//         brand: payload.brand,
+//         reference: payload.reference,
+//         category: payload.category
+//       });
+      
+//       return NextResponse.json({ 
+//         message: 'Champs obligatoires manquants',
+//         missing: {
+//           designation: !payload.designation,
+//           brand: !payload.brand,
+//           reference: !payload.reference,
+//           category: !payload.category
+//         }
+//       }, { status: 400 });
+//     }
+
+//     // Vérifier l'utilisateur
+//     const user = await db.user.findUnique({
+//       where: { id: payload.user_id },
+//       include: {
+//         secondaryRoles: true,
+//         store: true
+//       }
+//     });
+
+//     if (!user) {
+//       return NextResponse.json({ message: 'Utilisateur non trouvé' }, { status: 403 });
+//     }
+
+//     if (user.status !== 'ACTIVE') {
+//       return NextResponse.json({ 
+//         message: 'Compte utilisateur inactif ou suspendu' 
+//       }, { status: 403 });
+//     }
+
+//     // ===========================
+//     // 2. VÉRIFICATION DES RÔLES
+//     // ===========================
+    
+//     const userRoles: Role[] = [user.role, ...user.secondaryRoles.map(sr => sr.role)];
+//     const isRoleValid = userRoles.includes(payload.role as Role);
+
+//     if (!isRoleValid) {
+//       return NextResponse.json({ 
+//         message: "Votre rôle est introuvable" 
+//       }, { status: 403 });
+//     }
+
+//     if (payload.role !== user.role) {
+//       const secondaryRole = user.secondaryRoles.find(sr => sr.role === payload.role);
+//       if (secondaryRole?.expiresAt && new Date(secondaryRole.expiresAt) < new Date()) {
+//         return NextResponse.json({ 
+//           message: 'Ce rôle secondaire a expiré' 
+//         }, { status: 403 });
+//       }
+//     }
+
+//     const canCreate = hasPermission(payload.role as Role, 'products.create');
+    
+//     if (!canCreate) {
+//       return NextResponse.json({ 
+//         message: "Vous n'êtes pas autorisé à créer des modèles de produits." 
+//       }, { status: 403 });
+//     }
+
+//     // ===========================
+//     // 3. VALIDATION DES RECOMMANDATIONS (SI PRÉSENTES)
+//     // ===========================
+    
+//     if (payload.recommendedProducts && Array.isArray(payload.recommendedProducts) && payload.recommendedProducts.length > 0) {
+//       const recommendedProductIds = payload.recommendedProducts.map((rp: any) => rp.recommendedProductId);
+      
+//       // Vérifier l'existence des produits recommandés
+//       const existingProducts = await db.productModel.findMany({
+//         where: { 
+//           id: { in: recommendedProductIds }
+//         },
+//         select: { id: true }
+//       });
+
+//       if (existingProducts.length !== recommendedProductIds.length) {
+//         const foundIds = existingProducts.map(p => p.id);
+//         const missingIds = recommendedProductIds.filter((id: string) => !foundIds.includes(id));
+//         return NextResponse.json({ 
+//           message: `Produits recommandés introuvables: ${missingIds.join(', ')}` 
+//         }, { status: 404 });
+//       }
+//     }
+
+//     // ===========================
+//     // 4. CRÉATION DU MODÈLE AVEC TRANSACTION
+//     // ===========================
+
+//     const result = await db.$transaction(async (tx) => {
+//       // 4.1 Créer le modèle
+//       const newModel = await tx.productModel.create({
+//         data: {
+//           designation: payload.designation,
+//           brand: payload.brand,
+//           reference: payload.reference,
+//           category: payload.category,
+//           family: payload.family || null,
+//           subFamily: payload.subFamily || null,
+//           description: payload.description || null,
+//           status: payload.status || 'DRAFT',
+//           specifications: payload.specifications || {},
+//           createdById: payload.user_id
+//         }
+//       });
+
+//       console.log('✅ Modèle créé:', newModel.id);
+
+//       // 4.2 Créer les couleurs avec images
+//       if (payload.colors && Array.isArray(payload.colors) && payload.colors.length > 0) {
+//         for (const color of payload.colors) {
+//           const createdColor = await tx.productColor.create({
+//             data: {
+//               modelId: newModel.id,
+//               colorName: color.colorName,
+//               hexaColor: color.hexaColor
+//             }
+//           });
+
+//           console.log(`✅ Couleur créée: ${color.colorName}`);
+
+//           // Créer les images pour cette couleur
+//           if (color.images && Array.isArray(color.images) && color.images.length > 0) {
+//             await tx.productImage.createMany({
+//               data: color.images.map((img: any) => ({
+//                 colorId: createdColor.id,
+//                 url: img.url,
+//                 fileName: img.fileName,
+//                 displayOrder: img.displayOrder
+//               }))
+//             });
+
+//             console.log(`✅ ${color.images.length} image(s) créée(s) pour ${color.colorName}`);
+//           }
+//         }
+//       }
+
+//       // 4.3 Créer les variantes
+//       if (payload.variants && Array.isArray(payload.variants) && payload.variants.length > 0) {
+//         for (const variant of payload.variants) {
+//           // Générer une référence unique pour la variante
+//           const variantReference = `${payload.reference}-${variant.storeId.substring(0, 8)}-${variant.variantAttribute || 'STD'}`.toUpperCase();
+          
+//           await tx.productVariant.create({
+//             data: {
+//               modelId: newModel.id,
+//               storeId: variant.storeId,
+//               variantReference: variantReference,
+//               variantAttribute: variant.variantAttribute || null,
+//               attributeType: variant.attributeType || 'NONE',
+              
+//               useFCFA: variant.useFCFA || false,
+//               pvTTC: variant.pvTTC || 0,
+//               pamp: variant.pamp || 0,
+//               oldPrice: variant.oldPrice || 0,
+//               margin: variant.margin || 0,
+//               tva: variant.tva || 18,
+              
+//               pvTTC_FCFA: variant.pvTTC_FCFA || 0,
+//               pamp_FCFA: variant.pamp_FCFA || 0,
+//               oldPrice_FCFA: variant.oldPrice_FCFA || 0,
+//               marginFCFA: variant.marginFCFA || 0,
+//               marginPercent: variant.marginPercent || 0
+//             }
+//           });
+//         }
+
+//         console.log(`✅ ${payload.variants.length} variante(s) créée(s)`);
+//       }
+
+//       // 4.4 Créer les recommandations
+//       if (payload.recommendedProducts && Array.isArray(payload.recommendedProducts) && payload.recommendedProducts.length > 0) {
+//         await tx.recommendedProduct.createMany({
+//           data: payload.recommendedProducts.map((rp: any) => ({
+//             mainProductId: newModel.id,
+//             recommendedProductId: rp.recommendedProductId,
+//             priority: rp.priority ?? 5,
+//             relationType: (rp.relationType as RecommendationType) ?? 'ACCESSORY',
+//             bundleDiscount: rp.bundleDiscount ? parseFloat(rp.bundleDiscount.toString()) : null,
+//             bundlePrice: rp.bundlePrice ? parseFloat(rp.bundlePrice.toString()) : null,
+//             description: rp.description || null,
+//             isActive: true,
+//             createdById: payload.user_id
+//           }))
+//         });
+
+//         console.log(`✅ ${payload.recommendedProducts.length} recommandation(s) créée(s)`);
+//       }
+
+//       return newModel;
+//     });
+
+//     // ===========================
+//     // 5. RETOUR SUCCESS
+//     // ===========================
+    
+//     console.log('🎉 Création complète du modèle:', result.id);
+    
+//     return NextResponse.json({
+//       success: true,
+//       message: 'Modèle créé avec succès',
+//       model: {
+//         id: result.id,
+//         designation: result.designation,
+//         reference: result.reference
+//       },
+//       summary: {
+//         colors: payload.colors?.length || 0,
+//         variants: payload.variants?.length || 0,
+//         recommendations: payload.recommendedProducts?.length || 0
+//       }
+//     }, { status: 201 });
+
+//   } catch (error: any) {
+//     console.error('❌ Erreur création modèle:', error);
+    
+//     // Gestion des erreurs Prisma
+//     if (error.code === 'P2002') {
+//       return NextResponse.json(
+//         { 
+//           success: false,
+//           message: 'Un modèle avec cette référence existe déjà' 
+//         },
+//         { status: 409 }
+//       );
+//     }
+
+//     if (error.code === 'P2003') {
+//       return NextResponse.json(
+//         { 
+//           success: false,
+//           message: 'Référence invalide (boutique, couleur ou produit recommandé introuvable)' 
+//         },
+//         { status: 400 }
+//       );
+//     }
+
+//     return NextResponse.json(
+//       { 
+//         success: false,
+//         message: 'Erreur lors de la création du modèle',
+//         error: process.env.NODE_ENV === 'development' ? error.message : undefined
+//       },
+//       { status: 500 }
+//     );
+//   }
+// }

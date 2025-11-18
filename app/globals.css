@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Animation pour les toasts */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+/* Styles pour SweetAlert2 - Boutons visibles */
+.swal2-confirm-custom,
+.swal2-cancel-custom {
+  color: white !important;
+  font-weight: 600 !important;
+  padding: 0.625rem 1.5rem !important;
+  border-radius: 0.5rem !important;
+  transition: all 0.2s !important;
+}
+
+.swal2-confirm-custom {
+  background-color: #800080 !important;
+  border: none !important;
+}
+
+.swal2-confirm-custom:hover {
+  background-color: #6b006b !important;
+}
+
+.swal2-cancel-custom {
+  background-color: #6b7280 !important;
+  border: none !important;
+}
+
+.swal2-cancel-custom:hover {
+  background-color: #4b5563 !important;
+}

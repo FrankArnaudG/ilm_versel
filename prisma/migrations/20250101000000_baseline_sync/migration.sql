@@ -1,0 +1,7 @@
+-- Baseline migration to sync current database state
+-- This migration marks the current state of the database as the baseline
+-- The following tables and changes already exist in the database:
+-- - product_comparisons table with indexes and foreign keys
+-- - offline_stores_locations table with index on departement
+-- This is an empty migration to mark the current state as baseline
+-- No changes needed as the database is already in sync with the schema

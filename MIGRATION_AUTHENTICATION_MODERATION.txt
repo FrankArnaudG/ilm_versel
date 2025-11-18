@@ -1,0 +1,177 @@
+# ========================================
+# MIGRATION - AUTHENTIFICATION ET MODÉRATION
+# ========================================
+
+# IMPORTANT : Exécutez ces commandes dans l'ordre
+
+# ========================================
+# ÉTAPE 1 : Ajouter la variable d'environnement
+# ========================================
+
+# Ouvrez votre fichier .env et ajoutez cette ligne :
+# ENABLE_REVIEW_MODERATION=false
+
+# Vous pouvez aussi le faire en ligne de commande :
+echo "ENABLE_REVIEW_MODERATION=false" >> .env
+
+# ========================================
+# ÉTAPE 2 : Nettoyer les avis existants (OPTIONNEL)
+# ========================================
+
+# ⚠️ ATTENTION : Ceci supprime TOUS les avis existants !
+# Si vous avez des avis en production, NE PAS EXÉCUTER
+
+# Si vous êtes en développement et voulez repartir à zéro :
+# npx prisma studio
+# Puis supprimez manuellement les avis depuis l'interface
+
+# OU via SQL (à vos risques et périls) :
+# DELETE FROM product_reviews;
+# DELETE FROM review_replies;
+
+# ========================================
+# ÉTAPE 3 : Générer et appliquer la migration
+# ========================================
+
+npx prisma migrate dev --name add_reviews_authentication_moderation
+
+# Cette commande va :
+# - Créer les nouveaux champs dans ProductReview (isApproved, moderatedBy, etc.)
+# - Créer les nouvelles relations entre User et ProductReview
+# - Créer les nouveaux index
+# ⚠️ ATTENTION : userId devient obligatoire, les avis existants sans userId causeront une erreur
+
+# ========================================
+# ÉTAPE 4 : Régénérer le client Prisma
+# ========================================
+
+npx prisma generate
+
+# ========================================
+# ÉTAPE 5 : Vérifier la base de données
+# ========================================
+
+npx prisma studio
+
+# Vérifiez que :
+# - La table product_reviews a les nouveaux champs
+# - La table users a les nouvelles relations
+# - Aucune erreur de contrainte
+
+# ========================================
+# ÉTAPE 6 : Redémarrer le serveur
+# ========================================
+
+npm run dev
+
+# ========================================
+# ÉTAPE 7 : Tester l'authentification
+# ========================================
+
+# 1. Ouvrez votre navigateur sur une page produit
+# 2. Essayez de laisser un avis SANS être connecté
+# 3. Vous devriez voir une popup "Vous devez être connecté..."
+# 4. Connectez-vous
+# 5. Le formulaire devrait être pré-rempli avec vos informations
+# 6. Soumettez un avis
+# 7. L'avis devrait apparaître immédiatement (si modération désactivée)
+
+# ========================================
+# ÉTAPE 8 : Tester la modération (OPTIONNEL)
+# ========================================
+
+# Si vous voulez activer la modération :
+
+# 1. Modifiez .env :
+#    ENABLE_REVIEW_MODERATION=true
+
+# 2. Redémarrez le serveur :
+#    npm run dev
+
+# 3. Laissez un avis (connecté)
+
+# 4. Vérifiez qu'il n'apparaît PAS sur le site
+
+# 5. Allez dans l'admin : http://localhost:3000/ilm2
+#    (ou votre URL admin)
+
+# 6. Cliquez sur "Modération des avis" dans le menu
+
+# 7. Vous devriez voir l'avis en attente
+
+# 8. Approuvez-le
+
+# 9. Retournez sur la page produit
+
+# 10. L'avis devrait maintenant être visible !
+
+# ========================================
+# EN CAS D'ERREUR
+# ========================================
+
+# Erreur : "userId cannot be null"
+# Solution : Supprimez les avis existants ou assignez-leur un userId
+
+# Erreur : "Table 'product_reviews' doesn't exist"
+# Solution : Vérifiez que la migration s'est bien appliquée
+#           npx prisma migrate status
+
+# Erreur : "Cannot find module ReviewsModerationPage"
+# Solution : Vérifiez que le fichier existe dans :
+#           app/(main)/view_admin/components/ReviewsModerationPage.tsx
+
+# Erreur de build : "Property 'user' does not exist"
+# Solution : Vérifiez que le type User inclut les nouvelles relations
+#           npx prisma generate
+
+# ========================================
+# POUR RÉINITIALISER COMPLÈTEMENT (DÉVELOPPEMENT UNIQUEMENT)
+# ========================================
+
+# ⚠️ ATTENTION : Ceci supprime TOUTE la base de données !
+
+# npx prisma migrate reset
+# npx prisma generate
+# npm run dev
+
+# ========================================
+# POUR LA PRODUCTION
+# ========================================
+
+# Utilisez cette commande au lieu de migrate dev :
+# npx prisma migrate deploy
+
+# Assurez-vous d'avoir :
+# 1. Sauvegardé la base de données
+# 2. Testé en développement/staging
+# 3. Planifié une fenêtre de maintenance
+# 4. Préparé un plan de rollback
+
+# ========================================
+# SUPPORT
+# ========================================
+
+# Si vous rencontrez des problèmes :
+# 1. Consultez AUTHENTICATION_AND_MODERATION_GUIDE.md
+# 2. Vérifiez les logs serveur
+# 3. Vérifiez les logs navigateur (F12 → Console)
+# 4. Utilisez npx prisma studio pour inspecter la BD
+
+# ========================================
+# ✅ VÉRIFICATION FINALE
+# ========================================
+
+# Checklist :
+# [ ] Variable ENABLE_REVIEW_MODERATION dans .env
+# [ ] Migration appliquée sans erreur
+# [ ] Client Prisma régénéré
+# [ ] Serveur démarré avec succès
+# [ ] Test authentification : Popup pour utilisateur non connecté ✓
+# [ ] Test authentification : Pré-remplissage formulaire ✓
+# [ ] Test avis : Création réussie ✓
+# [ ] Test avis : Visible sur le site (si pas de modération) ✓
+# [ ] Test modération : Avis en attente visible dans admin (si modération) ✓
+# [ ] Test modération : Approbation fonctionne (si modération) ✓
+
+# Tout est prêt ! 🎉
+

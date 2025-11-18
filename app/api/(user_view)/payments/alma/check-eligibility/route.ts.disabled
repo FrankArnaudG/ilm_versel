@@ -1,0 +1,188 @@
+// app/api/payments/alma/check-eligibility/route.ts
+
+import { NextRequest, NextResponse } from 'next/server';
+import { almaClient, toAlmaCents, AlmaEligibilityRequest } from '@/lib/alma/alma-client';
+
+/**
+ * ============================================
+ * POST - VÉRIFIER L'ÉLIGIBILITÉ ALMA
+ * ============================================
+ * 
+ * Cette route vérifie si un montant est éligible
+ * au paiement en plusieurs fois avec Alma.
+ * 
+ * Utilisée pour afficher ou masquer les options Alma
+ * dans le formulaire de paiement.
+ */
+
+export async function POST(req: NextRequest) {
+  try {
+    console.log('\n🔍 ========================================');
+    console.log('🔍 VÉRIFICATION ÉLIGIBILITÉ ALMA');
+    console.log('🔍 ========================================\n');
+
+    // ----------------------------------------
+    // 1. VÉRIFIER LA CONFIGURATION
+    // ----------------------------------------
+    if (!almaClient.isConfigured()) {
+      console.error('❌ Alma non configuré');
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Alma non configuré',
+          eligible: false
+        },
+        { status: 500 }
+      );
+    }
+
+    // ----------------------------------------
+    // 2. RÉCUPÉRER LES DONNÉES
+    // ----------------------------------------
+    const { amount } = await req.json();
+
+    console.log('📋 Montant à vérifier:', amount, '€');
+
+    if (!amount || amount <= 0) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Montant invalide',
+          eligible: false
+        },
+        { status: 400 }
+      );
+    }
+
+    // ----------------------------------------
+    // 3. VÉRIFICATION RAPIDE LOCALE
+    // ----------------------------------------
+    // Montants minimum et maximum pour Alma
+    const MIN_AMOUNT = 50;  // 50€ minimum
+    const MAX_AMOUNT = 2000; // 2000€ maximum
+
+    if (amount < MIN_AMOUNT) {
+      console.log('❌ Montant trop faible:', amount, '€ (min:', MIN_AMOUNT, '€)');
+      return NextResponse.json({
+        success: true,
+        eligible: false,
+        reason: `Le montant minimum pour Alma est de ${MIN_AMOUNT}€`,
+        eligibility: {
+          '2x': false,
+          '3x': false,
+          '4x': false
+        }
+      });
+    }
+
+    if (amount > MAX_AMOUNT) {
+      console.log('❌ Montant trop élevé:', amount, '€ (max:', MAX_AMOUNT, '€)');
+      return NextResponse.json({
+        success: true,
+        eligible: false,
+        reason: `Le montant maximum pour Alma est de ${MAX_AMOUNT}€`,
+        eligibility: {
+          '2x': false,
+          '3x': false,
+          '4x': false
+        }
+      });
+    }
+
+    // ----------------------------------------
+    // 4. VÉRIFICATION AVEC L'API ALMA
+    // ----------------------------------------
+    console.log('🔄 Appel API Alma pour vérification...');
+
+    const eligibilityRequest: AlmaEligibilityRequest = {
+      purchase_amount: toAlmaCents(amount),
+      queries: [
+        { installments_count: 2 },
+        { installments_count: 3 },
+        { installments_count: 4 }
+      ]
+    };
+
+    const eligibilityResults = await almaClient.checkEligibility(eligibilityRequest);
+
+    console.log('✅ Résultats éligibilité:', eligibilityResults);
+
+    // ----------------------------------------
+    // 5. FORMATER LA RÉPONSE
+    // ----------------------------------------
+    const eligibility: Record<string, any> = {};
+    let hasEligibleOption = false;
+
+    for (const result of eligibilityResults) {
+      const key = `${result.installments_count}x`;
+      eligibility[key] = {
+        eligible: result.eligible,
+        installments: result.installments_count,
+        customerFee: result.customer_fee,
+        constraints: result.constraints
+      };
+
+      if (result.eligible) {
+        hasEligibleOption = true;
+      }
+    }
+
+    console.log('📊 Éligibilité formatée:', eligibility);
+    console.log(`${hasEligibleOption ? '✅' : '❌'} Au moins une option éligible:`, hasEligibleOption);
+
+    // ----------------------------------------
+    // 6. RÉPONSE
+    // ----------------------------------------
+    console.log('\n✅ ========================================');
+    console.log('✅ ÉLIGIBILITÉ VÉRIFIÉE');
+    console.log('✅ ========================================\n');
+
+    return NextResponse.json({
+      success: true,
+      eligible: hasEligibleOption,
+      amount: amount,
+      eligibility: eligibility,
+      message: hasEligibleOption 
+        ? 'Montant éligible au paiement en plusieurs fois' 
+        : 'Montant non éligible au paiement en plusieurs fois'
+    });
+
+  } catch (error: any) {
+    console.error('\n❌ ========================================');
+    console.error('❌ ERREUR VÉRIFICATION ÉLIGIBILITÉ');
+    console.error('❌ ========================================');
+    console.error(error);
+    console.error('❌ ========================================\n');
+
+    return NextResponse.json(
+      { 
+        success: false,
+        eligible: false,
+        error: 'Erreur lors de la vérification de l\'éligibilité',
+        message: process.env.NODE_ENV === 'development' ? error.message : 'Une erreur est survenue'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * ============================================
+ * GET - OBTENIR LES LIMITES ALMA
+ * ============================================
+ * 
+ * Retourne les limites min/max pour l'affichage
+ */
+
+export async function GET(req: NextRequest) {
+  return NextResponse.json({
+    success: true,
+    limits: {
+      min: 50,
+      max: 2000,
+      currency: 'EUR'
+    },
+    installments: [2, 3, 4],
+    message: 'Limites Alma pour les paiements en plusieurs fois'
+  });
+}

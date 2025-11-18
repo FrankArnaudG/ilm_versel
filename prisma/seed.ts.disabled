@@ -1,0 +1,412 @@
+import { PrismaClient, VariantAttributeType } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
+
+const prisma = new PrismaClient();
+
+// Catégories et marques par défaut si aucune n'existe
+const DEFAULT_CATEGORIES = [
+  'Téléphones',
+  'Tablettes',
+  'Ordinateurs',
+  'Accessoires de charge',
+  'Produits connectés',
+  'Écouteurs',
+  'Montres connectées',
+  'Power Banks'
+];
+
+const DEFAULT_BRANDS = [
+  'Apple',
+  'Samsung',
+  'Xiaomi',
+  'Oukitel',
+  'Google',
+  'OnePlus',
+  'Motorola',
+  'Sony',
+  'Huawei',
+  'Oppo'
+];
+
+// Couleurs par défaut
+const DEFAULT_COLORS = [
+  { name: 'Noir', hex: '#000000' },
+  { name: 'Blanc', hex: '#FFFFFF' },
+  { name: 'Rouge', hex: '#FF0000' },
+  { name: 'Bleu', hex: '#0000FF' },
+  { name: 'Vert', hex: '#00FF00' },
+  { name: 'Or', hex: '#FFD700' },
+  { name: 'Argent', hex: '#C0C0C0' },
+  { name: 'Rose', hex: '#FFC0CB' }
+];
+
+// Attributs de variantes selon la catégorie
+const getVariantAttributes = (category: string): { attribute: string; type: string }[] => {
+  const categoryLower = category.toLowerCase();
+  
+  if (categoryLower.includes('téléphone') || categoryLower.includes('telephone')) {
+    return [
+      { attribute: '128GB', type: 'STORAGE_RAM' },
+      { attribute: '256GB', type: 'STORAGE_RAM' },
+      { attribute: '512GB', type: 'STORAGE_RAM' },
+      { attribute: '1TB', type: 'STORAGE_RAM' }
+    ];
+  }
+  
+  if (categoryLower.includes('tablette')) {
+    return [
+      { attribute: '64GB', type: 'STORAGE_RAM' },
+      { attribute: '128GB', type: 'STORAGE_RAM' },
+      { attribute: '256GB', type: 'STORAGE_RAM' }
+    ];
+  }
+  
+  if (categoryLower.includes('ordinateur')) {
+    return [
+      { attribute: '8GB RAM', type: 'MEMORY' },
+      { attribute: '16GB RAM', type: 'MEMORY' },
+      { attribute: '32GB RAM', type: 'MEMORY' }
+    ];
+  }
+  
+  if (categoryLower.includes('montre')) {
+    return [
+      { attribute: '41mm', type: 'SIZE' },
+      { attribute: '45mm', type: 'SIZE' },
+      { attribute: '49mm', type: 'SIZE' }
+    ];
+  }
+  
+  if (categoryLower.includes('power') || categoryLower.includes('charge')) {
+    return [
+      { attribute: '10000mAh', type: 'CAPACITY' },
+      { attribute: '20000mAh', type: 'CAPACITY' },
+      { attribute: '30000mAh', type: 'CAPACITY' }
+    ];
+  }
+  
+  return [{ attribute: null, type: 'NONE' }];
+};
+
+// Générer un numéro d'article unique
+let articleCounter = 1;
+const generateArticleNumber = (): string => {
+  const number = `ART-${String(articleCounter).padStart(6, '0')}`;
+  articleCounter++;
+  return number;
+};
+
+// Générer une référence de variante unique
+const generateVariantReference = (modelRef: string, storeCode: string, attribute: string | null): string => {
+  const attr = attribute ? `-${attribute}` : '';
+  return `${modelRef}-${storeCode}${attr}`;
+};
+
+// Générer un prix aléatoire
+const generatePrice = (basePrice: number, useFCFA: boolean = false): { pvTTC: Decimal; pvTTC_FCFA: Decimal; pamp: Decimal; pamp_FCFA: Decimal; oldPrice: Decimal; oldPrice_FCFA: Decimal; margin: Decimal; marginFCFA: Decimal; marginPercent: Decimal } => {
+  const pvTTC = new Decimal(basePrice);
+  const pamp = new Decimal(basePrice * 0.6); // Prix d'achat = 60% du prix de vente
+  const oldPrice = new Decimal(basePrice * 1.2); // Ancien prix = 20% plus cher
+  const margin = pvTTC.minus(pamp);
+  const marginPercent = new Decimal((Number(margin) / Number(pvTTC)) * 100);
+  
+  // Conversion FCFA (1 EUR ≈ 655 FCFA)
+  const rate = 655;
+  const pvTTC_FCFA = new Decimal(Number(pvTTC) * rate);
+  const pamp_FCFA = new Decimal(Number(pamp) * rate);
+  const oldPrice_FCFA = new Decimal(Number(oldPrice) * rate);
+  const marginFCFA = new Decimal(Number(margin) * rate);
+  
+  return {
+    pvTTC,
+    pvTTC_FCFA,
+    pamp,
+    pamp_FCFA,
+    oldPrice,
+    oldPrice_FCFA,
+    margin,
+    marginFCFA,
+    marginPercent
+  };
+};
+
+async function main() {
+  console.log('🌱 Début du seeding...\n');
+
+  // 1. Récupérer tous les stores
+  const stores = await prisma.store.findMany({
+    where: { status: 'ACTIVE' }
+  });
+  
+  if (stores.length === 0) {
+    console.log('❌ Aucune boutique active trouvée. Veuillez créer au moins une boutique avant de lancer le seeder.');
+    return;
+  }
+  
+  console.log(`✅ ${stores.length} boutique(s) trouvée(s)\n`);
+
+  // 2. Récupérer les catégories uniques depuis la base de données ou utiliser les catégories par défaut
+  const existingCategories = await prisma.productModel.findMany({
+    select: { category: true },
+    distinct: ['category']
+  });
+  
+  const categories = existingCategories.length > 0
+    ? existingCategories.map(c => c.category)
+    : DEFAULT_CATEGORIES;
+  
+  console.log(`✅ ${categories.length} catégorie(s) trouvée(s): ${categories.join(', ')}\n`);
+
+  // 3. Récupérer les marques uniques depuis la base de données ou utiliser les marques par défaut
+  const existingBrands = await prisma.productModel.findMany({
+    select: { brand: true },
+    distinct: ['brand']
+  });
+  
+  const brands = existingBrands.length > 0
+    ? existingBrands.map(b => b.brand)
+    : DEFAULT_BRANDS;
+  
+  console.log(`✅ ${brands.length} marque(s) trouvée(s): ${brands.join(', ')}\n`);
+
+  // 4. Créer ou récupérer un fournisseur par défaut
+  let supplier = await prisma.supplier.findFirst({
+    where: { name: 'Fournisseur Générique' }
+  });
+  
+  if (!supplier) {
+    supplier = await prisma.supplier.create({
+      data: {
+        name: 'Fournisseur Générique',
+        contactName: 'Contact Générique',
+        phone: '+33 1 23 45 67 89',
+        email: 'contact@fournisseur-generique.fr',
+        address: '123 Rue Générique, 75001 Paris',
+        country: 'France'
+      }
+    });
+    console.log('✅ Fournisseur générique créé\n');
+  }
+
+  // 5. Récupérer ou créer un utilisateur pour les entrées de stock
+  let user = await prisma.user.findFirst({
+    where: { role: 'SUPER_ADMIN' }
+  });
+  
+  if (!user) {
+    // Créer un utilisateur système si aucun admin n'existe
+    user = await prisma.user.create({
+      data: {
+        name: 'Système',
+        email: 'system@ilm.com',
+        role: 'SUPER_ADMIN',
+        status: 'ACTIVE'
+      }
+    });
+    console.log('✅ Utilisateur système créé pour les entrées de stock\n');
+  }
+
+  // 6. Pour chaque combinaison store + catégorie + marque, générer 5 ProductModel
+  let totalModels = 0;
+  let totalVariants = 0;
+  let totalArticles = 0;
+
+  for (const store of stores) {
+    console.log(`\n📦 Traitement de la boutique: ${store.name} (${store.code})`);
+    
+    for (const category of categories) {
+      for (const brand of brands) {
+        console.log(`  📱 Catégorie: ${category} | Marque: ${brand}`);
+        
+        // Générer 5 modèles pour cette combinaison
+        for (let i = 1; i <= 5; i++) {
+          const modelNumber = String(totalModels + i).padStart(3, '0');
+          const reference = `${brand.toUpperCase().substring(0, 3)}-${category.substring(0, 3).toUpperCase()}-${modelNumber}`;
+          
+          // Vérifier si le modèle existe déjà
+          const existingModel = await prisma.productModel.findUnique({
+            where: { reference }
+          });
+          
+          if (existingModel) {
+            console.log(`    ⏭️  Modèle ${reference} existe déjà, ignoré`);
+            continue;
+          }
+
+          // Créer le ProductModel
+          const productModel = await prisma.productModel.create({
+            data: {
+              designation: `${brand} ${category} Modèle ${i}`,
+              brand: brand,
+              reference: reference,
+              category: category,
+              description: `Description du ${brand} ${category} Modèle ${i}. Un produit de qualité supérieure.`,
+              status: 'ACTIVE',
+              specifications: {
+                processor: 'Processeur haute performance',
+                screen: 'Écran haute résolution',
+                battery: 'Batterie longue durée',
+                connectivity: 'Connectivité avancée'
+              },
+              averageRating: new Decimal(4.0 + Math.random() * 1.0), // Note entre 4.0 et 5.0
+              totalReviews: Math.floor(Math.random() * 1000) + 100,
+              // Définir aléatoirement les flags
+              is_new: Math.random() > 0.7,
+              is_recommanded: Math.random() > 0.7,
+              is_our_best_seller: Math.random() > 0.8,
+              is_on_deal: Math.random() > 0.6
+            }
+          });
+          totalModels++;
+
+          // Créer des couleurs pour ce modèle (2-3 couleurs aléatoires)
+          const numColors = Math.floor(Math.random() * 2) + 2; // 2 ou 3 couleurs
+          const selectedColors = DEFAULT_COLORS
+            .sort(() => Math.random() - 0.5)
+            .slice(0, numColors);
+          
+          const colors = [];
+          for (const color of selectedColors) {
+            const productColor = await prisma.productColor.create({
+              data: {
+                colorName: color.name,
+                hexaColor: color.hex,
+                modelId: productModel.id
+              }
+            });
+            colors.push(productColor);
+
+            // Créer une image par couleur
+            await prisma.productImage.create({
+              data: {
+                url: `/assets/images/placeholder-${color.name.toLowerCase()}.png`,
+                fileName: `placeholder-${color.name.toLowerCase()}.png`,
+                displayOrder: 0,
+                colorId: productColor.id
+              }
+            });
+          }
+
+          // Créer des variantes selon la catégorie
+          const variantAttributes = getVariantAttributes(category);
+          const basePrice = 100 + Math.random() * 900; // Prix entre 100 et 1000 EUR
+          const useFCFA = store.currency === 'XOF' || store.country === 'Guyane';
+
+          for (const variantAttr of variantAttributes) {
+            // Créer une variante pour chaque attribut
+            const variantReference = generateVariantReference(
+              reference,
+              store.code,
+              variantAttr.attribute
+            );
+
+            // Vérifier si la variante existe déjà
+            const existingVariant = await prisma.productVariant.findUnique({
+              where: { variantReference }
+            });
+
+            if (existingVariant) {
+              continue;
+            }
+
+            const prices = generatePrice(basePrice, useFCFA);
+            const stockQuantity = Math.floor(Math.random() * 20) + 5; // Stock entre 5 et 25
+
+            const variant = await prisma.productVariant.create({
+              data: {
+                variantReference: variantReference,
+                modelId: productModel.id,
+                storeId: store.id,
+                variantAttribute: variantAttr.attribute,
+                attributeType: variantAttr.type as VariantAttributeType,
+                weight: new Decimal(0.2 + Math.random() * 1.8), // Poids entre 0.2 et 2.0 kg
+                length: new Decimal(10 + Math.random() * 20), // Longueur entre 10 et 30 cm
+                width: new Decimal(5 + Math.random() * 15), // Largeur entre 5 et 20 cm
+                height: new Decimal(1 + Math.random() * 5), // Hauteur entre 1 et 6 cm
+                useFCFA: useFCFA,
+                pvTTC: prices.pvTTC,
+                pvTTC_FCFA: prices.pvTTC_FCFA,
+                pamp: prices.pamp,
+                pamp_FCFA: prices.pamp_FCFA,
+                oldPrice: prices.oldPrice,
+                oldPrice_FCFA: prices.oldPrice_FCFA,
+                tva: new Decimal(18),
+                margin: prices.margin,
+                marginFCFA: prices.marginFCFA,
+                marginPercent: prices.marginPercent,
+                totalStock: stockQuantity,
+                availableStock: stockQuantity,
+                reservedStock: 0,
+                soldStock: 0
+              }
+            });
+            totalVariants++;
+
+            // Créer une entrée de stock pour ce lot d'articles
+            const stockEntry = await prisma.stockEntry.create({
+              data: {
+                storeId: store.id,
+                supplierId: supplier.id,
+                documentFile: `/documents/entry-${variant.id}.pdf`,
+                documentType: 'Bon de livraison',
+                documentRefs: `BL-${variant.id.substring(0, 8).toUpperCase()}`,
+                purchaseDate: new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000), // Date aléatoire dans les 90 derniers jours
+                receivedDate: new Date(),
+                importSource: 'MANUAL',
+                totalArticles: stockQuantity,
+                status: 'VALIDATED',
+                createdById: user.id,
+                validatedById: user.id,
+                validatedAt: new Date()
+              }
+            });
+
+            // Créer des articles pour cette variante (1 article par unité en stock)
+            for (let j = 0; j < stockQuantity; j++) {
+              const articleNumber = generateArticleNumber();
+              const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+              await prisma.article.create({
+                data: {
+                  articleNumber: articleNumber,
+                  articleReference: `${reference}-${variantAttr.attribute || 'DEFAULT'}-${j + 1}`,
+                  modelReference: reference,
+                  description: `Article ${j + 1} du modèle ${productModel.designation}`,
+                  modelId: productModel.id,
+                  storeId: store.id,
+                  entryId: stockEntry.id,
+                  supplierId: supplier.id,
+                  variantId: variant.id,
+                  colorId: randomColor.id,
+                  status: 'IN_STOCK',
+                  articleCondition: 'NEW',
+                  specifications: {
+                    serialNumber: `SN-${articleNumber}`,
+                    imei: `IMEI-${Math.random().toString(36).substring(2, 15)}`
+                  }
+                }
+              });
+              totalArticles++;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  console.log('\n✅ Seeding terminé avec succès!');
+  console.log(`📊 Statistiques:`);
+  console.log(`   - ${totalModels} modèles de produits créés`);
+  console.log(`   - ${totalVariants} variantes créées`);
+  console.log(`   - ${totalArticles} articles créés`);
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Erreur lors du seeding:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+

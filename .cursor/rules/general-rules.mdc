@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+Quand tu fais des modifications sur le code, tu dois toujours mettre à jour le fichier CHANGELOG.md uniquement pour expliquer les modifications apportées de façon claire, concise et succinte. Tu ne dois pas créer un fichier .md différent pour chaque modification.
+
+Il ne faut pas changer le formatage du code déjà existant, tu dois toujours laisser le formatage tel qu'il est présent dans le fichier sauf si cela est nécessaire pour la correction d'un bug ou d'une erreur.
+
+Ce projet utilise Next.js, Tailwind CSS, Shadcn UI, Prisma, Lucide, NextAuth, React, TypeScript, Node.js, Express, PostgreSQL, etc.

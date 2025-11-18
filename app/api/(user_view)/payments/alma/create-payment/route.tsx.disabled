@@ -1,0 +1,336 @@
+// app/api/payments/alma/create-payment/route.ts
+
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { almaClient, ALMA_URLS, toAlmaCents, AlmaPaymentData } from '@/lib/alma/alma-client';
+
+/**
+ * ============================================
+ * POST - CRÉER UN PAIEMENT ALMA
+ * ============================================
+ * 
+ * Cette route initialise un paiement Alma en plusieurs fois
+ * et redirige l'utilisateur vers la page de paiement Alma.
+ */
+
+export async function POST(req: NextRequest) {
+  try {
+    console.log('\n🔵 ========================================');
+    console.log('🔵 CRÉATION PAIEMENT ALMA');
+    console.log('🔵 ========================================\n');
+
+    // ----------------------------------------
+    // 1. VÉRIFIER LA CONFIGURATION
+    // ----------------------------------------
+    if (!almaClient.isConfigured()) {
+      console.error('❌ Alma non configuré - Clés API manquantes');
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Le paiement Alma n\'est pas configuré' 
+        },
+        { status: 500 }
+      );
+    }
+
+    // ----------------------------------------
+    // 2. RÉCUPÉRER LES DONNÉES
+    // ----------------------------------------
+    const { orderId, amount, installments } = await req.json();
+
+    console.log('📋 Données reçues:', { orderId, amount, installments });
+
+    // Validation
+    if (!orderId || !amount || !installments) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Données manquantes (orderId, amount, installments requis)' 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier que le nombre de mensualités est valide
+    if (![2, 3, 4].includes(installments)) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Nombre de mensualités invalide (2, 3 ou 4 uniquement)' 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier le montant minimum pour Alma (50€)
+    if (amount < 50) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: `Le montant minimum pour un paiement en ${installments}x est de 50€` 
+        },
+        { status: 400 }
+      );
+    }
+
+    // ----------------------------------------
+    // 3. RÉCUPÉRER LA COMMANDE
+    // ----------------------------------------
+    console.log('📦 Récupération de la commande:', orderId);
+
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      include: {
+        user: true,
+        shippingAddress: true,
+        billingAddress: true,
+        items: {
+          include: {
+            article: {
+              include: {
+                model: true,
+                color: true,
+                variant: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      console.error('❌ Commande introuvable:', orderId);
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Commande introuvable' 
+        },
+        { status: 404 }
+      );
+    }
+
+    // Vérifier que la commande n'est pas déjà payée
+    if (order.paymentStatus === 'SUCCEEDED') {
+      console.error('⚠️ Commande déjà payée:', order.orderNumber);
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Cette commande a déjà été payée' 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier que le montant correspond
+    const orderTotal = parseFloat(order.totalAmount.toString());
+    if (Math.abs(orderTotal - amount) > 0.01) {
+      console.error('⚠️ Montant incorrect:', { orderAmount: orderTotal, requestedAmount: amount });
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Le montant ne correspond pas à la commande' 
+        },
+        { status: 400 }
+      );
+    }
+
+    console.log('✅ Commande validée:', {
+      orderNumber: order.orderNumber,
+      totalAmount: orderTotal,
+      locality: order.locality
+    });
+
+    // ----------------------------------------
+    // 4. PRÉPARER LES DONNÉES POUR ALMA
+    // ----------------------------------------
+    
+    // Séparer le nom complet
+    const shippingNameParts = order.shippingAddress.fullName.split(' ');
+    const shippingFirstName = shippingNameParts[0] || '';
+    const shippingLastName = shippingNameParts.slice(1).join(' ') || shippingFirstName;
+
+    const billingNameParts = order.billingAddress.fullName.split(' ');
+    const billingFirstName = billingNameParts[0] || '';
+    const billingLastName = billingNameParts.slice(1).join(' ') || billingFirstName;
+
+    // Données du paiement Alma
+    const almaPaymentData: AlmaPaymentData = {
+      purchase_amount: toAlmaCents(amount), // Montant en centimes
+      installments_count: installments,
+      
+      // Informations client
+      customer: {
+        email: order.user.email || '',
+        first_name: shippingFirstName,
+        last_name: shippingLastName,
+        phone: order.shippingAddress.phone,
+        addresses: [{
+          line1: order.shippingAddress.addressLine1,
+          line2: order.shippingAddress.addressLine2 || undefined,
+          postal_code: order.shippingAddress.postalCode,
+          city: order.shippingAddress.city,
+          country: order.shippingAddress.country,
+        }]
+      },
+
+      // Adresse de livraison
+      shipping_address: {
+        first_name: shippingFirstName,
+        last_name: shippingLastName,
+        line1: order.shippingAddress.addressLine1,
+        line2: order.shippingAddress.addressLine2 || undefined,
+        postal_code: order.shippingAddress.postalCode,
+        city: order.shippingAddress.city,
+        country: order.shippingAddress.country,
+        phone: order.shippingAddress.phone,
+      },
+
+      // Adresse de facturation
+      billing_address: {
+        first_name: billingFirstName,
+        last_name: billingLastName,
+        line1: order.billingAddress.addressLine1,
+        line2: order.billingAddress.addressLine2 || undefined,
+        postal_code: order.billingAddress.postalCode,
+        city: order.billingAddress.city,
+        country: order.billingAddress.country,
+      },
+
+      // Référence et métadonnées
+      merchant_reference: order.orderNumber,
+      custom_data: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        locality: order.locality
+      },
+
+      // URLs de callback
+      return_url: `${ALMA_URLS.return_url}&order_id=${order.id}`,
+      ipn_callback_url: ALMA_URLS.ipn_callback_url,
+    };
+
+    console.log('📋 Données Alma préparées:', {
+      amount: amount,
+      installments: installments,
+      merchant_reference: order.orderNumber,
+      mode: almaClient.getMode()
+    });
+
+    // ----------------------------------------
+    // 5. CRÉER LE PAIEMENT ALMA
+    // ----------------------------------------
+    console.log('💳 Création du paiement Alma...');
+
+    const almaPayment = await almaClient.createPayment(almaPaymentData);
+
+    console.log('✅ Paiement Alma créé:', {
+      payment_id: almaPayment.id,
+      url: almaPayment.url,
+      state: almaPayment.state
+    });
+
+    // ----------------------------------------
+    // 6. ENREGISTRER LE PAIEMENT EN BASE
+    // ----------------------------------------
+    console.log('💾 Enregistrement dans la base de données...');
+
+    const payment = await db.payment.create({
+      data: {
+        orderId: order.id,
+        amount: amount,
+        currency: 'EUR',
+        provider: 'alma',
+        providerPaymentId: almaPayment.id,
+        status: 'PENDING',
+        method: `ALMA_${installments}X` as any,
+        installments: installments,
+        installmentPlan: almaPayment.payment_plan as any,
+        metadata: {
+          alma_url: almaPayment.url,
+          alma_state: almaPayment.state,
+          customer_fee: almaPayment.customer_fee,
+          mode: almaClient.getMode()
+        }
+      }
+    });
+
+    console.log('✅ Paiement enregistré en BDD:', payment.id);
+
+    // Mettre à jour la commande
+    await db.order.update({
+      where: { id: order.id },
+      data: {
+        paymentProvider: 'alma',
+        paymentIntentId: almaPayment.id,
+        paymentStatus: 'PROCESSING'
+      }
+    });
+
+    // Créer l'historique
+    await db.orderStatusHistory.create({
+      data: {
+        orderId: order.id,
+        fromStatus: 'PENDING',
+        toStatus: 'PENDING',
+        note: `Paiement Alma ${installments}x initialisé - ${almaPayment.id}`
+      }
+    });
+
+    console.log('✅ Commande mise à jour');
+
+    // ----------------------------------------
+    // 7. RÉPONSE
+    // ----------------------------------------
+    console.log('\n✅ ========================================');
+    console.log('✅ PAIEMENT ALMA CRÉÉ AVEC SUCCÈS');
+    console.log('✅ ========================================\n');
+
+    return NextResponse.json({
+      success: true,
+      paymentId: almaPayment.id,
+      paymentUrl: almaPayment.url,
+      installmentsCount: installments,
+      paymentPlan: almaPayment.payment_plan,
+      customerFee: almaPayment.customer_fee
+    });
+
+  } catch (error: any) {
+    console.error('\n❌ ========================================');
+    console.error('❌ ERREUR CRÉATION PAIEMENT ALMA');
+    console.error('❌ ========================================');
+    console.error(error);
+    console.error('❌ ========================================\n');
+
+    // Gestion des erreurs Alma spécifiques
+    if (error.message?.includes('amount')) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Montant invalide pour Alma',
+          message: error.message 
+        },
+        { status: 400 }
+      );
+    }
+
+    if (error.message?.includes('eligibility')) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Commande non éligible au paiement en plusieurs fois',
+          message: error.message 
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { 
+        success: false,
+        error: 'Erreur lors de l\'initialisation du paiement Alma',
+        message: process.env.NODE_ENV === 'development' ? error.message : 'Une erreur est survenue'
+      },
+      { status: 500 }
+    );
+  }
+}

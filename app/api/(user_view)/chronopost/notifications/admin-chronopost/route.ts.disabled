@@ -1,0 +1,223 @@
+// import { NextRequest, NextResponse } from 'next/server';
+// import { Resend } from 'resend';
+
+// const resend = new Resend(process.env.RESEND_API_KEY);
+// const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@ecocom.fr';
+
+// export async function POST(request: NextRequest) {
+//   try {
+//     const { type, orderId, orderNumber, error, skybillNumber, pickupDate, locality } = await request.json();
+
+//     let subject = '';
+//     let htmlContent = '';
+
+//     // ============================================
+//     // EMAIL : ÉTIQUETTE GÉNÉRÉE AVEC SUCCÈS
+//     // ============================================
+//     if (type === 'success') {
+//       subject = `✅ Étiquette Chronopost générée - ${orderNumber}`;
+//       htmlContent = `
+//         <!DOCTYPE html>
+//         <html>
+//         <head>
+//           <style>
+//             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+//             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+//             .header { background: #10b981; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+//             .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
+//             .info-box { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #10b981; }
+//             .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+//             .label { font-weight: bold; color: #6b7280; }
+//             .value { color: #111827; }
+//             .btn { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px; }
+//             .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+//           </style>
+//         </head>
+//         <body> 
+//           <div class="container">
+//             <div class="header">
+//               <h1>✅ Étiquette Chronopost générée</h1>
+//             </div>
+            
+//             <div class="content">
+//               <p>Une nouvelle étiquette d'expédition a été générée avec succès.</p>
+              
+//               <div class="info-box">
+//                 <div class="info-row">
+//                   <span class="label">N° de commande :</span>
+//                   <span class="value">${orderNumber}</span>
+//                 </div>
+//                 <div class="info-row">
+//                   <span class="label">N° de suivi :</span>
+//                   <span class="value"><strong>${skybillNumber}</strong></span>
+//                 </div>
+//                 <div class="info-row">
+//                   <span class="label">Localité :</span>
+//                   <span class="value">${locality}</span>
+//                 </div>
+//                 <div class="info-row">
+//                   <span class="label">Date :</span>
+//                   <span class="value">${new Date().toLocaleString('fr-FR')}</span>
+//                 </div>
+//               </div>
+              
+//               <p><strong>Prochaine étape :</strong> Téléchargez l'étiquette et préparez le colis pour l'expédition.</p>
+              
+//               <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/orders/${orderId}/shipping" class="btn">
+//                 Voir la commande
+//               </a>
+//             </div>
+            
+//             <div class="footer">
+//               <p>Email automatique - Ne pas répondre</p>
+//             </div>
+//           </div>
+//         </body>
+//         </html>
+//       `;
+//     }
+
+//     // ============================================
+//     // EMAIL : ERREUR DE GÉNÉRATION
+//     // ============================================
+//     else if (type === 'error') {
+//       subject = `❌ Erreur génération étiquette - ${orderNumber}`;
+//       htmlContent = `
+//         <!DOCTYPE html>
+//         <html>
+//         <head>
+//           <style>
+//             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+//             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+//             .header { background: #ef4444; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+//             .content { background: #fef2f2; padding: 20px; border: 1px solid #fecaca; }
+//             .error-box { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #ef4444; }
+//             .btn { display: inline-block; background: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px; }
+//             .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+//           </style>
+//         </head>
+//         <body>
+//           <div class="container">
+//             <div class="header">
+//               <h1>❌ Erreur génération étiquette</h1>
+//             </div>
+            
+//             <div class="content">
+//               <p><strong>⚠️ Action requise :</strong> La génération automatique de l'étiquette Chronopost a échoué.</p>
+              
+//               <div class="error-box">
+//                 <p><strong>Commande :</strong> ${orderNumber}</p>
+//                 <p><strong>Erreur :</strong></p>
+//                 <pre style="background: #fee; padding: 10px; border-radius: 4px; overflow-x: auto;">${error}</pre>
+//               </div>
+              
+//               <p><strong>Que faire ?</strong></p>
+//               <ul>
+//                 <li>Vérifier les données de la commande</li>
+//                 <li>Vérifier les adresses et le poids des articles</li>
+//                 <li>Régénérer l'étiquette manuellement depuis l'interface admin</li>
+//                 <li>Contacter Chronopost si le problème persiste</li>
+//               </ul>
+              
+//               <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/orders/${orderId}/shipping" class="btn">
+//                 Résoudre le problème
+//               </a>
+//             </div>
+            
+//             <div class="footer">
+//               <p>Email automatique - Ne pas répondre</p>
+//             </div>
+//           </div>
+//         </body>
+//         </html>
+//       `;
+//     }
+
+//     // ============================================
+//     // EMAIL : ENLÈVEMENT DEMANDÉ
+//     // ============================================
+//     else if (type === 'pickup') {
+//       subject = `📦 Enlèvement Chronopost demandé - ${orderNumber}`;
+//       htmlContent = `
+//         <!DOCTYPE html>
+//         <html>
+//         <head>
+//           <style>
+//             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+//             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+//             .header { background: #8b5cf6; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+//             .content { background: #faf5ff; padding: 20px; border: 1px solid #e9d5ff; }
+//             .info-box { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #8b5cf6; }
+//             .btn { display: inline-block; background: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px; }
+//             .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+//           </style>
+//         </head>
+//         <body>
+//           <div class="container">
+//             <div class="header">
+//               <h1>📦 Enlèvement Chronopost demandé</h1>
+//             </div>
+            
+//             <div class="content">
+//               <p>Un enlèvement a été demandé auprès de Chronopost.</p>
+              
+//               <div class="info-box">
+//                 <p><strong>Commande :</strong> ${orderNumber}</p>
+//                 <p><strong>N° de suivi :</strong> ${skybillNumber}</p>
+//                 <p><strong>Date d'enlèvement prévue :</strong> ${new Date(pickupDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')).toLocaleDateString('fr-FR')}</p>
+//               </div>
+              
+//               <p><strong>À faire :</strong></p>
+//               <ul>
+//                 <li>Préparer le colis avec l'étiquette collée</li>
+//                 <li>Être disponible pour la collecte Chronopost</li>
+//                 <li>Scanner le colis lors de la remise au chauffeur</li>
+//               </ul>
+              
+//               <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/orders/${orderId}/shipping" class="btn">
+//                 Voir la commande
+//               </a>
+//             </div>
+            
+//             <div class="footer">
+//               <p>Email automatique - Ne pas répondre</p>
+//             </div>
+//           </div>
+//         </body>
+//         </html>
+//       `;
+//     }
+
+//     // ============================================
+//     // ENVOI DE L'EMAIL
+//     // ============================================
+//     const { data, error: resendError } = await resend.emails.send({
+//       from: 'ECOCOM Notifications <notifications@ecocom.fr>',
+//       to: [ADMIN_EMAIL],
+//       subject,
+//       html: htmlContent
+//     });
+
+//     if (resendError) {
+//       console.error('❌ Erreur Resend:', resendError);
+//       return NextResponse.json({
+//         success: false,
+//         error: resendError.message
+//       }, { status: 500 });
+//     }
+
+//     console.log('✅ Email admin envoyé:', data?.id);
+
+//     return NextResponse.json({
+//       success: true,
+//       emailId: data?.id
+//     });
+
+//   } catch (error: any) {
+//     console.error('❌ Erreur notification admin:', error);
+//     return NextResponse.json({
+//       success: false,
+//       error: error.message
+//     }, { status: 500 });
+//   }
+// }

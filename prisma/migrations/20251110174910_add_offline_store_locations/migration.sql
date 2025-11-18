@@ -1,0 +1,4 @@
+-- Migration for offline_stores_locations
+-- This table already exists in the database (created via prisma db push)
+-- This is an empty migration to mark the current state
+-- No changes needed as the table already exists

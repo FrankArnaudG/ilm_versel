@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/api/(user_view)/payments/alma/check-eligibility/route.ts.disabled", "app/api/(user_view)/payments/alma/create-payment/route.tsx.disabled", "app/api/(user_view)/payments/alma/webhook/route.tsx.disabled", "app/(main)/autres/facture/page.tsx.disabled", "app/api/(user_view)/payments/notifications/send-whatsapp/route.ts.disabled", "app/api/(produits)/products/models/recommendations/route.tsx.disabled", "app/api/(user_view)/chronopost/notifications/admin-chronopost/route.ts.disabled", "app/api/(user_view)/chronopost/tracking/[trackingNumber]/route.ts.disabled"],
+  "exclude": ["node_modules"]
+}

@@ -1,0 +1,392 @@
+// app/api/payments/alma/webhook/route.ts
+
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import crypto from 'crypto';
+
+/**
+ * ============================================
+ * POST - WEBHOOK ALMA (IPN - Instant Payment Notification)
+ * ============================================
+ * 
+ * Cette route reçoit les notifications Alma en temps réel
+ * pour mettre à jour le statut des paiements.
+ * 
+ * Documentation : https://docs.getalma.eu/docs/webhooks
+ */
+
+export async function POST(req: NextRequest) {
+  try {
+    console.log('\n🔔 ========================================');
+    console.log('🔔 WEBHOOK ALMA REÇU');
+    console.log('🔔 ========================================\n');
+
+    // ----------------------------------------
+    // 1. RÉCUPÉRER ET PARSER LES DONNÉES
+    // ----------------------------------------
+    const body = await req.text();
+    const signature = req.headers.get('x-alma-signature');
+
+    console.log('📩 Webhook reçu');
+    console.log('🔐 Signature:', signature);
+
+    // ⚠️ IMPORTANT: En production, TOUJOURS vérifier la signature
+    // if (!signature || !verifyAlmaSignature(body, signature)) {
+    //   console.error('❌ Signature invalide');
+    //   return NextResponse.json(
+    //     { error: 'Signature invalide' },
+    //     { status: 401 }
+    //   );
+    // }
+
+    const webhookData = JSON.parse(body);
+    
+    console.log('📋 Type d\'événement:', webhookData.type);
+    console.log('💳 Payment ID:', webhookData.data?.id);
+
+    // ----------------------------------------
+    // 2. TRAITER L'ÉVÉNEMENT
+    // ----------------------------------------
+    
+    switch (webhookData.type) {
+      case 'payment.authorized':
+        await handlePaymentAuthorized(webhookData.data);
+        break;
+
+      case 'payment.captured':
+        await handlePaymentCaptured(webhookData.data);
+        break;
+
+      case 'payment.failed':
+        await handlePaymentFailed(webhookData.data);
+        break;
+
+      case 'payment.refunded':
+        await handlePaymentRefunded(webhookData.data);
+        break;
+
+      default:
+        console.log('⚠️ Type d\'événement non géré:', webhookData.type);
+    }
+
+    // ----------------------------------------
+    // 3. RÉPONSE
+    // ----------------------------------------
+    console.log('✅ Webhook traité avec succès\n');
+
+    return NextResponse.json({ 
+      success: true,
+      received: true 
+    });
+
+  } catch (error) {
+    console.error('\n❌ ========================================');
+    console.error('❌ ERREUR TRAITEMENT WEBHOOK ALMA');
+    console.error('❌ ========================================');
+    console.error(error);
+    console.error('❌ ========================================\n');
+
+    return NextResponse.json(
+      { 
+        success: false,
+        error: 'Erreur traitement webhook' 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// ============================================
+// GESTIONNAIRES D'ÉVÉNEMENTS
+// ============================================
+
+/**
+ * Paiement autorisé (client a validé sur Alma)
+ */
+async function handlePaymentAuthorized(paymentData: any) {
+  console.log('✅ Paiement autorisé:', paymentData.id);
+
+  try {
+    // Récupérer le paiement en base
+    const payment = await db.payment.findFirst({
+      where: { providerPaymentId: paymentData.id },
+      include: { order: true }
+    });
+
+    if (!payment) {
+      console.error('❌ Paiement introuvable en BDD:', paymentData.id);
+      return;
+    }
+
+    console.log('📦 Commande associée:', payment.order.orderNumber);
+
+    // Mettre à jour le paiement
+    await db.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'PROCESSING',
+        processedAt: new Date(),
+        metadata: {
+          ...(payment.metadata as any),
+          alma_state: paymentData.state,
+          authorized_at: new Date().toISOString()
+        }
+      }
+    });
+
+    // Mettre à jour la commande
+    await db.order.update({
+      where: { id: payment.orderId },
+      data: {
+        status: 'CONFIRMED',
+        paymentStatus: 'PROCESSING'
+      }
+    });
+
+    // Historique
+    await db.orderStatusHistory.create({
+      data: {
+        orderId: payment.orderId,
+        fromStatus: 'PENDING',
+        toStatus: 'CONFIRMED',
+        note: `Paiement Alma autorisé - ${paymentData.id}`
+      }
+    });
+
+    console.log('✅ Paiement marqué comme autorisé');
+
+  } catch (error) {
+    console.error('❌ Erreur handlePaymentAuthorized:', error);
+    throw error;
+  }
+}
+
+/**
+ * Paiement capturé (argent reçu)
+ */
+async function handlePaymentCaptured(paymentData: any) {
+  console.log('💰 Paiement capturé:', paymentData.id);
+
+  try {
+    // Récupérer le paiement en base
+    const payment = await db.payment.findFirst({
+      where: { providerPaymentId: paymentData.id },
+      include: { order: true }
+    });
+
+    if (!payment) {
+      console.error('❌ Paiement introuvable en BDD:', paymentData.id);
+      return;
+    }
+
+    console.log('📦 Commande associée:', payment.order.orderNumber);
+
+    // Mettre à jour le paiement
+    await db.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'SUCCEEDED',
+        processedAt: new Date(),
+        metadata: {
+          ...(payment.metadata as any),
+          alma_state: paymentData.state,
+          captured_at: new Date().toISOString()
+        }
+      }
+    });
+
+    // Mettre à jour la commande
+    await db.order.update({
+      where: { id: payment.orderId },
+      data: {
+        status: 'CONFIRMED',
+        paymentStatus: 'SUCCEEDED',
+        paidAt: new Date()
+      }
+    });
+
+    // Historique
+    await db.orderStatusHistory.create({
+      data: {
+        orderId: payment.orderId,
+        fromStatus: 'CONFIRMED',
+        toStatus: 'CONFIRMED',
+        note: `Paiement Alma confirmé - ${paymentData.id}`
+      }
+    });
+
+    console.log('✅ Paiement marqué comme réussi');
+
+    // TODO: Déclencher les actions post-paiement
+    // - Envoyer email de confirmation
+    // - Notifier l'équipe
+    // - Mettre à jour le stock
+    // - Générer l'étiquette de livraison
+
+  } catch (error) {
+    console.error('❌ Erreur handlePaymentCaptured:', error);
+    throw error;
+  }
+}
+
+/**
+ * Paiement échoué
+ */
+async function handlePaymentFailed(paymentData: any) {
+  console.log('❌ Paiement échoué:', paymentData.id);
+
+  try {
+    // Récupérer le paiement en base
+    const payment = await db.payment.findFirst({
+      where: { providerPaymentId: paymentData.id },
+      include: { order: true }
+    });
+
+    if (!payment) {
+      console.error('❌ Paiement introuvable en BDD:', paymentData.id);
+      return;
+    }
+
+    console.log('📦 Commande associée:', payment.order.orderNumber);
+
+    // Mettre à jour le paiement
+    await db.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'FAILED',
+        failedAt: new Date(),
+        metadata: {
+          ...(payment.metadata as any),
+          alma_state: paymentData.state,
+          failure_reason: paymentData.reason || 'unknown',
+          failed_at: new Date().toISOString()
+        }
+      }
+    });
+
+    // Mettre à jour la commande
+    await db.order.update({
+      where: { id: payment.orderId },
+      data: {
+        status: 'CANCELLED',
+        paymentStatus: 'FAILED'
+      }
+    });
+
+    // Historique
+    await db.orderStatusHistory.create({
+      data: {
+        orderId: payment.orderId,
+        fromStatus: 'PENDING',
+        toStatus: 'CANCELLED',
+        note: `Paiement Alma échoué - ${paymentData.id}`
+      }
+    });
+
+    console.log('✅ Paiement marqué comme échoué');
+
+  } catch (error) {
+    console.error('❌ Erreur handlePaymentFailed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Paiement remboursé
+ */
+async function handlePaymentRefunded(paymentData: any) {
+  console.log('💸 Paiement remboursé:', paymentData.id);
+
+  try {
+    // Récupérer le paiement en base
+    const payment = await db.payment.findFirst({
+      where: { providerPaymentId: paymentData.id },
+      include: { order: true }
+    });
+
+    if (!payment) {
+      console.error('❌ Paiement introuvable en BDD:', paymentData.id);
+      return;
+    }
+
+    console.log('📦 Commande associée:', payment.order.orderNumber);
+
+    // Vérifier si c'est un remboursement total ou partiel
+    const isFullRefund = paymentData.refunded_amount === payment.amount;
+
+    // Mettre à jour le paiement
+    await db.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+        refundedAt: new Date(),
+        metadata: {
+          ...(payment.metadata as any),
+          alma_state: paymentData.state,
+          refunded_amount: paymentData.refunded_amount,
+          refunded_at: new Date().toISOString()
+        }
+      }
+    });
+
+    // Mettre à jour la commande
+    await db.order.update({
+      where: { id: payment.orderId },
+      data: {
+        status: 'REFUNDED',
+        paymentStatus: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED'
+      }
+    });
+
+    // Historique
+    await db.orderStatusHistory.create({
+      data: {
+        orderId: payment.orderId,
+        toStatus: 'REFUNDED',
+        note: `Paiement Alma remboursé (${isFullRefund ? 'total' : 'partiel'}) - ${paymentData.id}`
+      }
+    });
+
+    console.log(`✅ Paiement marqué comme remboursé (${isFullRefund ? 'total' : 'partiel'})`);
+
+  } catch (error) {
+    console.error('❌ Erreur handlePaymentRefunded:', error);
+    throw error;
+  }
+}
+
+// ============================================
+// VÉRIFICATION DE SIGNATURE (OPTIONNEL MAIS RECOMMANDÉ)
+// ============================================
+
+/**
+ * Vérifier la signature du webhook Alma
+ * 
+ * Documentation: https://docs.getalma.eu/docs/webhooks#verifying-signatures
+ */
+function verifyAlmaSignature(payload: string, signature: string): boolean {
+  try {
+    const almaApiKey = process.env.ALMA_API_KEY_TEST || process.env.ALMA_API_KEY_LIVE;
+    
+    if (!almaApiKey) {
+      console.error('⚠️ Clé API Alma manquante pour vérification signature');
+      return false;
+    }
+
+    // Calculer le HMAC
+    const expectedSignature = crypto
+      .createHmac('sha256', almaApiKey)
+      .update(payload)
+      .digest('hex');
+
+    // Comparer les signatures
+    return crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expectedSignature)
+    );
+
+  } catch (error) {
+    console.error('❌ Erreur vérification signature:', error);
+    return false;
+  }
+}

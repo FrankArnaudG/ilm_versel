@@ -1,0 +1,38 @@
+# ========================================
+# COMMANDES À EXÉCUTER POUR LA MIGRATION
+# ========================================
+
+# IMPORTANT : Exécutez ces commandes dans l'ordre
+
+# 1. Vérifier le statut actuel de la base de données
+npx prisma migrate status
+
+# 2. Générer et appliquer la migration
+npx prisma migrate dev --name add_product_reviews_system
+
+# 3. Régénérer le client Prisma
+npx prisma generate
+
+# 4. (Optionnel) Vérifier que tout est OK
+npx prisma migrate status
+
+# 5. Démarrer le serveur de développement
+npm run dev
+
+# ========================================
+# EN CAS DE PROBLÈME
+# ========================================
+
+# Si la migration échoue, vous pouvez réinitialiser :
+# ATTENTION : Ceci supprime toutes les données !
+# npx prisma migrate reset
+
+# Puis recommencer à l'étape 2
+
+# ========================================
+# POUR LA PRODUCTION
+# ========================================
+
+# Utilisez cette commande au lieu de migrate dev :
+# npx prisma migrate deploy
+

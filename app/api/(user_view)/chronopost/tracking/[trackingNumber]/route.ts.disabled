@@ -1,0 +1,85 @@
+// // app/api/chronopost/tracking/[trackingNumber]/route.ts
+
+// import { NextRequest, NextResponse } from 'next/server';
+// import { ChronopostTrackingService } from '@/lib/chronopost/tracking.service';
+// import { db } from '@/lib/db';
+
+// /**
+//  * GET /api/chronopost/tracking/[trackingNumber]
+//  * Récupère les informations de tracking d'un colis
+//  */
+// export async function GET(
+//   req: NextRequest,
+//   { params }: { params: { trackingNumber: string } }
+// ) {
+//   try {
+//     const { trackingNumber } = params;
+
+//     if (!trackingNumber) {
+//       return NextResponse.json(
+//         { error: 'Numéro de tracking manquant' },
+//         { status: 400 }
+//       );
+//     }
+
+//     // Trouver la commande correspondante pour récupérer la localité
+//     const order = await db.order.findFirst({
+//       where: {
+//         OR: [
+//           { trackingNumber: trackingNumber },
+//           { chronopostSkybillNumber: trackingNumber },
+//         ],
+//       },
+//       select: {
+//         id: true,
+//         locality: true,
+//         orderNumber: true,
+//       },
+//     });
+
+//     if (!order) {
+//       return NextResponse.json(
+//         { error: 'Commande introuvable pour ce numéro de tracking' },
+//         { status: 404 }
+//       );
+//     }
+
+//     // Appeler le service de tracking Chronopost
+//     const trackingResult = await ChronopostTrackingService.trackShipment(
+//       trackingNumber,
+//       order.locality
+//     );
+
+//     if (!trackingResult.success) {
+//       return NextResponse.json(
+//         {
+//           error: trackingResult.errorMessage,
+//           errorCode: trackingResult.errorCode,
+//         },
+//         { status: 400 }
+//       );
+//     }
+
+//     return NextResponse.json({
+//       success: true,
+//       order: {
+//         orderId: order.id,
+//         orderNumber: order.orderNumber,
+//       },
+//       tracking: {
+//         skybillNumber: trackingResult.skybillNumber,
+//         currentStatus: trackingResult.currentStatus,
+//         deliveryDate: trackingResult.deliveryDate,
+//         recipientName: trackingResult.recipientName,
+//         events: trackingResult.events,
+//       },
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Erreur API tracking:', error);
+//     return NextResponse.json(
+//       { error: 'Erreur interne' },
+//       { status: 500 }
+//     );
+//   }
+// }

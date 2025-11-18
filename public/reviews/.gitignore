@@ -1,0 +1,7 @@
+# Ignorer toutes les images uploadées
+*
+
+# Garder le fichier .gitkeep pour que le dossier soit versionné
+!.gitkeep
+!.gitignore
+

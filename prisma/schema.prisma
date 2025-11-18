@@ -1,0 +1,1137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updateAt          DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+  type       TokenType @default(EMAIL_VERIFICATION) // Type de token
+  createdAt  DateTime  @default(now())
+  updateAt   DateTime  @updatedAt
+
+  @@unique([identifier, token])
+  @@index([identifier])
+  @@index([type])
+  @@map("verification_tokens")
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION // Vérification d'email
+  PASSWORD_RESET // Réinitialisation de mot de passe
+}
+
+model User {
+  id             String              @id @default(cuid())
+  name           String?
+  email          String              @unique
+  emailVerified  DateTime?
+  password       String? // Mot de passe hashé (optionnel pour OAuth)
+  phone          String?
+  image          String?
+  clientId       String?             @unique
+  role           Role                @default(USER)
+  status         UserStatus          @default(ACTIVE)
+  lastLogin      DateTime?
+  storeId        String?
+  createdById    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  accounts       Account[]
+  activityLogs   ActivityLog[]
+  StockEntry     StockEntry[]        @relation("StockEntryCreatedBy")
+  createdStores  Store[]             @relation("CreatedBy")
+  managedStore   Store?              @relation("StoreManager")
+  secondaryRoles UserSecondaryRole[] @relation("SecondaryRoles")
+  createdBy      User?               @relation("CreatedByUser", fields: [createdById], references: [id])
+  createdUsers   User[]              @relation("CreatedByUser")
+  store          Store?              @relation(fields: [storeId], references: [id])
+
+  // Relations avec les avis
+  reviews          ProductReview[]     @relation("UserReviews") // Avis laissés par l'utilisateur
+  replies          ReviewReply[]       @relation("UserReplies") // Réponses aux avis
+  moderatedReviews ProductReview[]     @relation("ModeratedReviews") // Avis modérés par l'utilisateur
+  addresses        Address[]
+  orders           Order[]
+  comparisons      ProductComparison[]
+  wishlistItems    WishlistItem[]
+
+  @@index([email])
+  @@index([role])
+  @@index([storeId])
+  @@index([status])
+  @@map("users")
+}
+
+model UserSecondaryRole {
+  id           String    @id @default(cuid())
+  userId       String
+  role         Role
+  assignedById String?
+  assignedAt   DateTime  @default(now())
+  expiresAt    DateTime?
+  user         User      @relation("SecondaryRoles", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([userId])
+  @@index([role])
+  @@map("user_secondary_roles")
+}
+
+model Store {
+  id           String      @id @default(cuid())
+  code         String      @unique
+  name         String
+  country      String
+  city         String
+  department   String
+  address      String
+  address2     String?
+  storeZipCode String?
+  phone        String?
+  email        String?
+  currency     String      @default("EUR")
+  timezone     String      @default("Europe/Paris")
+  status       StoreStatus @default(ACTIVE)
+  openingDate  DateTime?
+  company      String?
+  managerId    String?     @unique
+  createdById  String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  createdBy    User?       @relation("CreatedBy", fields: [createdById], references: [id])
+  manager      User?       @relation("StoreManager", fields: [managerId], references: [id])
+  employees    User[]
+
+  // Relations avec le système de stock
+  inventory    Article[]        @relation("StoreInventory") // Articles actuellement dans cette boutique
+  variants     ProductVariant[] @relation("StoreVariants") // Variantes disponibles dans cette boutique
+  stockEntries StockEntry[]     @relation("StoreStockEntries") // Entrées en stock dans cette boutique
+  // movementsFrom   StockMovement[]     @relation("MovementsFrom")             // Mouvements au départ de cette boutique
+  // movementsTo     StockMovement[]     @relation("MovementsTo")               // Mouvements vers cette boutique
+  orders       Order[]          @relation("StoreOrders")
+
+  @@index([code])
+  @@index([status])
+  @@index([country])
+  @@index([city])
+  @@index([managerId])
+  @@map("stores")
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  action      String
+  entityType  String
+  entityId    String?
+  description String?
+  oldValues   Json?
+  newValues   Json?
+  userId      String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([action])
+  @@map("activity_logs")
+}
+
+model ProductModel {
+  id             String        @id @default(cuid())
+  designation    String
+  brand          String
+  reference      String        @unique
+  category       String
+  family         String?
+  subFamily      String?
+  description    String?
+  status         ProductStatus @default(DRAFT)
+  specifications Json?
+
+  // Notation produit
+  averageRating Decimal? @db.Decimal(3, 2) // Note moyenne (ex: 4.56)
+  totalReviews  Int      @default(0) // Nombre total d'avis
+
+  // Flags de visibilité
+  is_new             Boolean @default(false) // Produit nouveau
+  is_recommanded     Boolean @default(false) // Produit recommandé
+  is_our_best_seller Boolean @default(false) // Meilleure vente
+  is_on_deal         Boolean @default(false) // En promotion
+
+  createdById         String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  colors              ProductColor[]       @relation("ModelColors")
+  // variants            ProductVariant[]     @relation("ModelVariants")
+  recommendedProducts RecommendedProduct[] @relation("MainProduct")
+  recommendedFor      RecommendedProduct[] @relation("RecommendedProduct")
+
+  // Relations avec les articles individuels
+  articles Article[]        @relation("ProductArticles") // Articles individuels de ce modèle
+  variants ProductVariant[] @relation("ModelVariants")
+  reviews  ProductReview[]  @relation("ProductReviews") // Avis clients
+  wishlistItems WishlistItem[] // Produits dans les listes de souhaits
+  // stockEntries    StockEntry[]        @relation("ModelStockEntries")         // Entrées en stock de ce modèle
+
+  @@index([brand])
+  @@index([category])
+  @@index([status])
+  @@index([averageRating])
+  @@map("product_models")
+}
+
+model ProductColor {
+  id        String         @id @default(cuid())
+  colorName String
+  hexaColor String
+  modelId   String
+  createdAt DateTime       @default(now())
+  model     ProductModel   @relation("ModelColors", fields: [modelId], references: [id], onDelete: Cascade)
+  images    ProductImage[] @relation("ColorImages")
+  // Relations avec les articles
+  articles  Article[]      @relation("ArticleColor") // Articles de cette couleur
+  // variants        ProductVariant[]     @relation("VariantColor")
+
+  @@index([modelId])
+  @@map("product_colors")
+}
+
+model ProductImage {
+  id           String       @id @default(cuid())
+  url          String
+  fileName     String?
+  displayOrder Int          @default(0)
+  colorId      String
+  createdAt    DateTime     @default(now())
+  color        ProductColor @relation("ColorImages", fields: [colorId], references: [id], onDelete: Cascade)
+
+  @@index([colorId])
+  @@index([displayOrder])
+  @@map("product_images")
+}
+
+// model ProductVariant {
+//   id             String       @id @default(cuid())
+//   name           String
+//   modelId        String
+//   // useFCFA        Boolean      @default(false)
+//   // pvTTC          Decimal      @default(0) @db.Decimal(10, 2)
+//   // pamp           Decimal      @default(0) @db.Decimal(10, 2)
+//   // oldPrice       Decimal      @default(0) @db.Decimal(10, 2)
+//   // margin         Decimal      @default(0) @db.Decimal(10, 2)
+//   // tva            Decimal      @default(18) @db.Decimal(5, 2)
+//   // pvTTC_FCFA     Decimal      @default(0) @db.Decimal(15, 2)
+//   // pamp_FCFA      Decimal      @default(0) @db.Decimal(15, 2)
+//   // oldPrice_FCFA  Decimal      @default(0) @db.Decimal(15, 2)
+//   // marginFCFA     Decimal      @default(0) @db.Decimal(15, 2)
+//   specifications Json?
+//   createdAt      DateTime     @default(now())
+//   updatedAt      DateTime     @updatedAt
+//   model          ProductModel @relation("ModelVariants", fields: [modelId], references: [id], onDelete: Cascade)
+//   // articles        Article[] @relation("ArticleVariant")     
+
+//   @@index([modelId])
+//   @@map("product_variants")
+// }
+
+model RecommendedProduct {
+  id                   String             @id @default(cuid())
+  mainProductId        String
+  recommendedProductId String
+  priority             Int                @default(5)
+  relationType         RecommendationType @default(ACCESSORY)
+  bundleDiscount       Decimal?           @db.Decimal(5, 2)
+  bundlePrice          Decimal?           @db.Decimal(10, 2)
+  description          String?
+  isActive             Boolean            @default(true)
+  createdById          String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  mainProduct          ProductModel       @relation("MainProduct", fields: [mainProductId], references: [id], onDelete: Cascade)
+  recommendedProduct   ProductModel       @relation("RecommendedProduct", fields: [recommendedProductId], references: [id], onDelete: Cascade)
+
+  @@unique([mainProductId, recommendedProductId])
+  @@index([mainProductId])
+  @@index([recommendedProductId])
+  @@index([priority])
+  @@map("recommended_products")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum Role {
+  USER
+  SUPER_ADMIN
+  OPERATIONS_DIRECTOR
+  FINANCIAL_MANAGER
+  DATA_ANALYST
+  INVENTORY_MANAGER
+  STORE_MANAGER
+  ASSISTANT_MANAGER
+  SALES_REPRESENTATIVE
+}
+
+enum StoreStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+// enum ProductStatus {
+//   ACTIVE
+//   DISCONTINUED
+//   COMING_SOON
+//   DRAFT
+// }
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+  DESTOCKING_ACTIVE
+  DESTOCKING_END_OF_LIFE
+  INACTIVE
+}
+
+enum ProductCondition {
+  NEW
+  LIKE_NEW
+  REFURBISHED
+}
+
+enum IndividualProductStatus {
+  DRAFT // Article en brouillon, non encore actif ou visible
+  IN_STOCK // Article disponible en stock dans la boutique
+  IN_TRANSIT // Article en transit entre deux boutiques
+  SOLD // Article vendu à un client
+  RESERVED // Article réservé pour un client spécifique
+  DEFECTIVE // Article défectueux ou endommagé
+  STOLEN // Article volé ou perdu suite à un vol
+  RETURNED // Article retourné par un client
+  LOST // Article perdu (inventaire)
+}
+
+enum RecommendationType {
+  ACCESSORY
+  COMPLEMENTARY
+  UPGRADE
+  ALTERNATIVE
+  BUNDLE
+}
+
+// ==========================================
+// GESTION DES ENTRÉES EN STOCK
+// ==========================================
+
+model StockEntry {
+  // Identification
+  id String @id @default(cuid()) // Identifiant unique de l'entrée
+  // entryNumber       String            @unique                                 // Numéro d'entrée format ENTRY-000001
+
+  // Relations obligatoires
+  storeId    String // ID de la boutique de destination
+  // modelId           String                                                    // ID du modèle de produit concerné
+  supplierId String // ID du fournisseur
+
+  // Document justificatif
+  documentFile String // URL du document uploadé (BL, Facture, etc.)
+  documentType String // Type/Nature du document (ex: "Bon de livraison")
+  documentRefs String // Références du document
+
+  // Dates
+  purchaseDate DateTime // Date d'achat chez le fournisseur
+  receivedDate DateTime @default(now()) // Date de réception des articles
+
+  // Informations d'import
+  importSource  ImportSource @default(MANUAL) // Méthode d'import (MANUAL ou EXCEL)
+  excelFileName String? // Nom du fichier Excel si import Excel
+
+  // Statistiques calculées
+  totalArticles Int @default(0) // Nombre total d'articles dans cette entrée
+
+  // Statut et notes
+  status StockEntryStatus @default(PENDING) // Statut de l'entrée (PENDING, VALIDATED, etc.)
+
+  // Audit et validation
+  createdById   String // ID de l'utilisateur qui a créé l'entrée
+  validatedById String? // ID de l'utilisateur qui a validé l'entrée
+  validatedAt   DateTime? // Date et heure de validation
+  createdAt     DateTime  @default(now()) // Date de création de l'entrée
+  updatedAt     DateTime  @updatedAt // Date de dernière modification
+
+  // Relations
+  createdBy User      @relation("StockEntryCreatedBy", fields: [createdById], references: [id])
+  store     Store     @relation("StoreStockEntries", fields: [storeId], references: [id]) // Boutique de destination
+  // model             ProductModel      @relation("ModelStockEntries", fields: [modelId], references: [id])      // Modèle de produit
+  supplier  Supplier  @relation("SupplierEntries", fields: [supplierId], references: [id]) // Fournisseur
+  articles  Article[] @relation("EntryArticles") // Articles de cette entrée
+  // movements         StockMovement[]   @relation("EntryMovements")                                              // Mouvements de stock liés
+
+  @@index([storeId]) // Index pour recherche par boutique
+  // @@index([modelId])                                                          // Index pour recherche par modèle
+  @@index([supplierId]) // Index pour recherche par fournisseur
+  @@index([status]) // Index pour recherche par statut
+  // @@index([entryNumber])                                                      // Index pour recherche par numéro
+  @@index([purchaseDate]) // Index pour recherche par date d'achat
+  @@index([createdAt]) // Index pour tri chronologique
+  @@map("stock_entries")
+}
+
+enum VariantAttributeType {
+  STORAGE_RAM // Stockage (256GB, 512GB, etc.)
+  SIZE // Taille (45mm, 41mm pour montres)
+  CAPACITY // Capacité (20000mAh pour powerbanks)
+  CONNECTOR // Type de connecteur (USB-C, Lightning)
+  MEMORY // RAM (8GB, 16GB)
+  NONE // Pas d'attribut variable
+}
+
+// ==========================================
+// VARIANTES DE PRODUITS
+// ==========================================
+// Ce modèle représente les différentes variantes d'un ProductModel.
+// Une variante est définie par une combinaison unique de :
+// - Modèle de produit (modelId)
+// - Couleur (colorId) - optionnel
+// - Stockage/RAM (stockage_ram) - optionnel
+//
+// Exemple : iPhone 15 Pro - Noir - 256GB est une variante
+//
+// Ce modèle permet de :
+// 1. Regrouper tous les articles (Article) ayant la même combinaison
+// 2. Avoir une référence unique par variante (variantReference)
+// 3. Afficher les variantes disponibles dans la boutique sans dupliquer
+// 4. Suivre le stock total par variante
+// ==========================================
+model ProductVariant {
+  id               String @id @default(cuid())
+  variantReference String @unique
+
+  // Relations
+  modelId String
+  storeId String
+  // colorId          String?
+
+  // Stockage
+  // stockage_ram     String?          // Ex: "256GB", "512GB", "8GB RAM" pour les telephone et null si pas de variante de stockage
+  variantAttribute String? // "256GB", "45mm", "20000mAh", "USB-C", etc. null si pas de variante de variantAttribute (stockage...)
+  attributeType    VariantAttributeType? // "storage", "size", "capacity", "connector"
+
+  // // POUR CHRONOPOST
+  // weight Decimal? @db.Decimal(10, 3) // Poids en KG
+  // length Decimal? @db.Decimal(10, 2) // Longueur en CM
+  // width  Decimal? @db.Decimal(10, 2) // Largeur en CM
+  // height Decimal? @db.Decimal(10, 2) // Hauteur en CM
+
+  // Prix et marges en EURO
+  useFCFA  Boolean @default(false)
+  pvTTC    Decimal @default(0) @db.Decimal(10, 2)
+  pamp     Decimal @default(0) @db.Decimal(10, 2)
+  oldPrice Decimal @default(0) @db.Decimal(10, 2)
+  tva      Decimal @default(18) @db.Decimal(5, 2)
+  margin   Decimal @default(0) @db.Decimal(10, 2)
+
+  // Prix et marges en FCFA
+  pvTTC_FCFA    Decimal @default(0) @db.Decimal(15, 2)
+  pamp_FCFA     Decimal @default(0) @db.Decimal(15, 2)
+  oldPrice_FCFA Decimal @default(0) @db.Decimal(15, 2)
+  marginFCFA    Decimal @default(0) @db.Decimal(15, 2)
+  marginPercent Decimal @default(0) @db.Decimal(10, 2)
+
+  // Statistiques de stock
+  totalStock     Int @default(0)
+  availableStock Int @default(0)
+  reservedStock  Int @default(0)
+  soldStock      Int @default(0)
+
+  // Dates
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  model    ProductModel @relation("ModelVariants", fields: [modelId], references: [id], onDelete: Cascade)
+  store    Store        @relation("StoreVariants", fields: [storeId], references: [id], onDelete: Cascade)
+  // color            ProductColor?    @relation("VariantColor", fields: [colorId], references: [id])
+  articles Article[]    @relation("VariantArticles")
+
+  // Contraintes et index
+  @@unique([modelId, storeId, variantAttribute])
+  @@index([modelId, storeId])
+  @@index([storeId, availableStock])
+  @@index([modelId])
+  @@index([storeId])
+  @@index([attributeType])
+  // @@index([colorId])
+  @@index([variantReference])
+  @@map("product_variants")
+}
+
+model Article {
+  // Identification
+  id               String  @id @default(cuid()) // Identifiant unique de l'article
+  articleNumber    String  @unique // Numéro d'article unique (ex: ART-001)
+  articleReference String // Référence de l'article
+  modelReference   String // Référence du modèle (redondant pour performance)
+  description      String? // Description de l'article (optionnel)
+
+  // Relations obligatoires
+  modelId    String // ID du modèle de produit (OBLIGATOIRE)
+  storeId    String // ID de la boutique où se trouve l'article
+  entryId    String // ID de StockEntry pour l'entrée en stock d'origine
+  supplierId String // ID du fournisseur
+  variantId  String // ID de la variante (combinaison modèle+couleur+stockage)
+  colorId    String? // ID de la couleur spécifique (si applicable)
+
+  // Prix et marges en EURO
+  // useFCFA           Boolean                 @default(false)                   // Indique si les prix sont saisis en FCFA
+  // pvTTC             Decimal                 @default(0) @db.Decimal(10, 2)   // Prix de vente TTC en Euros
+  // pamp              Decimal                 @default(0) @db.Decimal(10, 2)   // Prix d'achat moyen pondéré en Euros
+  // oldPrice          Decimal                 @default(0) @db.Decimal(10, 2)   // Ancien prix en Euros (pour promotions)
+  // tva               Decimal                 @default(18) @db.Decimal(5, 2)   // Taux de TVA en pourcentage
+  // margin            Decimal                 @default(0) @db.Decimal(10, 2)   // Marge en Euros
+
+  // // Prix et marges en FCFA
+  // pvTTC_FCFA        Decimal                 @default(0) @db.Decimal(15, 2)   // Prix de vente TTC en FCFA
+  // pamp_FCFA         Decimal                 @default(0) @db.Decimal(15, 2)   // Prix d'achat moyen pondéré en FCFA
+  // oldPrice_FCFA     Decimal                 @default(0) @db.Decimal(15, 2)   // Ancien prix en FCFA
+  // marginFCFA        Decimal                 @default(0) @db.Decimal(15, 2)   // Marge en FCFA
+  // marginPercent     Decimal                 @default(0) @db.Decimal(10, 2)   // Marge en pourcentage
+
+  // Spécifications
+  specifications Json? // Spécifications spécifiques à cet article (JSON)
+
+  // Statut et condition
+  status           IndividualProductStatus @default(DRAFT) // Statut actuel de l'article
+  articleCondition ProductCondition        @default(NEW) // État/condition de l'article
+
+  // Dates importantes
+  receivedDate DateTime  @default(now()) // Date de réception dans la boutique
+  soldDate     DateTime? // Date de vente (si vendu)
+  createdAt    DateTime  @default(now()) // Date de création de la fiche article
+  updatedAt    DateTime  @updatedAt // Date de dernière modification
+
+  // Relations
+  model      ProductModel   @relation("ProductArticles", fields: [modelId], references: [id]) // Modèle de produit
+  store      Store          @relation("StoreInventory", fields: [storeId], references: [id]) // Boutique actuelle
+  entry      StockEntry     @relation("EntryArticles", fields: [entryId], references: [id]) // Entrée en stock d'origine
+  supplier   Supplier       @relation("SupplierArticles", fields: [supplierId], references: [id]) // Fournisseur
+  color      ProductColor?  @relation("ArticleColor", fields: [colorId], references: [id]) // Couleur (optionnel)
+  variant    ProductVariant @relation("VariantArticles", fields: [variantId], references: [id])
+  // variant             ProductVariant?           @relation("ArticleVariant", fields: [variantId], references: [id])            // variant (optionnel)
+  // stockMovements    StockMovement[]         @relation("ArticleMovements")                                             // Historique des mouvements
+  orderItems OrderItem[]    @relation("OrderedArticles")
+
+  @@index([storeId, status])
+  @@index([variantId, status])
+  @@index([modelId])
+  @@index([storeId])
+  @@index([entryId])
+  @@index([supplierId])
+  @@index([colorId])
+  @@index([variantId])
+  @@index([status])
+  @@index([articleNumber])
+  @@index([articleReference])
+  @@index([modelReference])
+  @@map("individual_products")
+}
+
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  contactName String
+  phone       String?
+  email       String?
+  address     String?
+  country     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations avec les articles
+  articles     Article[]    @relation("SupplierArticles") // Articles fournis par ce fournisseur
+  stockEntries StockEntry[] @relation("SupplierEntries") // Entrées en stock de ce fournisseur
+
+  @@index([name])
+}
+
+// model StockMovement {
+//   // Identification
+//   id              String                  @id @default(cuid())                // Identifiant unique du mouvement
+//   type            MovementType                                                // Type de mouvement (ENTRY, SALE, TRANSFER, etc.)
+//   articleId       String                                                      // ID de l'article concerné
+//   entryId         String?                                                     // ID de l'entrée en stock (si applicable)
+
+//   // Mouvement entre boutiques
+//   fromStoreId     String?                                                     // ID de la boutique d'origine (pour transferts)
+//   toStoreId       String?                                                     // ID de la boutique de destination (pour transferts)
+
+//   // Informations financières
+//   quantity        Int                     @default(1)                         // Quantité déplacée (généralement 1 pour articles individuels)
+//   unitPrice       Decimal?                @db.Decimal(10, 2)                  // Prix unitaire au moment du mouvement
+//   totalPrice      Decimal?                @db.Decimal(15, 2)                  // Prix total du mouvement
+
+//   // Changement de statut
+//   fromStatus      IndividualProductStatus?                                    // Statut avant le mouvement
+//   toStatus        IndividualProductStatus?                                    // Statut après le mouvement
+
+//   // Informations complémentaires
+//   notes           String?                                                     // Notes ou commentaires sur le mouvement
+//   reference       String?                                                     // Référence du mouvement (N° de transfert, N° de vente, etc.)
+
+//   // Audit
+//   createdById     String                                                      // ID de l'utilisateur qui a créé le mouvement
+//   createdAt       DateTime                @default(now())                    // Date et heure du mouvement
+
+//   // Relations
+//   article         IndividualProduct       @relation("ArticleMovements", fields: [articleId], references: [id])      // Article concerné
+//   entry           StockEntry?             @relation("EntryMovements", fields: [entryId], references: [id])         // Entrée en stock (si applicable)
+//   fromStore       Store?                  @relation("MovementsFrom", fields: [fromStoreId], references: [id])      // Boutique d'origine
+//   toStore         Store?                  @relation("MovementsTo", fields: [toStoreId], references: [id])          // Boutique de destination
+
+//   @@index([articleId])                                                        // Index pour recherche par article
+//   @@index([entryId])                                                          // Index pour recherche par entrée
+//   @@index([fromStoreId])                                                      // Index pour recherche par boutique origine
+//   @@index([toStoreId])                                                        // Index pour recherche par boutique destination
+//   @@index([type])                                                             // Index pour recherche par type de mouvement
+//   @@index([createdAt])                                                        // Index pour tri chronologique
+//   @@map("stock_movements")
+// }
+
+// ==========================================
+// ENUMS
+// ==========================================
+enum MovementType {
+  ENTRY // Entrée en stock (réception fournisseur)
+  SALE // Vente à un client
+  TRANSFER // Transfert entre boutiques
+  RETURN // Retour client
+  ADJUSTMENT // Ajustement d'inventaire (correction)
+  LOSS // Perte ou vol
+  DEFECT // Mise au rebut (défectueux)
+}
+
+enum StockEntryStatus {
+  PENDING // Entrée en attente de validation
+  VALIDATED // Entrée validée et articles en stock
+  COMPLETED // Entrée annulée
+  PARTIAL // Réception partielle (certains articles reçus)
+}
+
+enum ImportSource {
+  MANUAL // Saisie manuelle article par article
+  EXCEL // Import depuis un fichier Excel
+  API // Import via API externe
+}
+
+// ==========================================
+// AVIS ET NOTATIONS PRODUITS
+// ==========================================
+model ProductReview {
+  id String @id @default(cuid())
+
+  // Relations
+  productModelId String // ID du modèle de produit
+  userId         String // ID de l'utilisateur (OBLIGATOIRE maintenant)
+
+  // Notation et avis
+  rating  Int // Note de 1 à 5
+  comment String? // Commentaire texte (optionnel)
+
+  // Informations client
+  authorName  String // Nom de l'auteur
+  authorEmail String? // Email (optionnel, pour vérification)
+
+  // Images attachées
+  images String[] @default([]) // URLs des images uploadées
+
+  // Métadonnées
+  isVerifiedPurchase Boolean @default(false) // Achat vérifié
+  isVisible          Boolean @default(true) // Visibilité de l'avis
+
+  // Modération
+  isApproved     Boolean   @default(false) // Avis approuvé par un admin
+  moderatedBy    String? // ID de l'admin qui a modéré
+  moderatedAt    DateTime? // Date de modération
+  moderationNote String? // Note de modération
+
+  // Réponses (pour le support client)
+  replies ReviewReply[] @relation("ReviewReplies")
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  productModel ProductModel @relation("ProductReviews", fields: [productModelId], references: [id], onDelete: Cascade)
+  user         User         @relation("UserReviews", fields: [userId], references: [id], onDelete: Cascade)
+  moderator    User?        @relation("ModeratedReviews", fields: [moderatedBy], references: [id])
+
+  @@index([productModelId])
+  @@index([userId])
+  @@index([rating])
+  @@index([createdAt])
+  @@index([isVisible])
+  @@index([isApproved])
+  @@index([moderatedBy])
+  @@map("product_reviews")
+}
+
+// ==========================================
+// RÉPONSES AUX AVIS
+// ==========================================
+model ReviewReply {
+  id String @id @default(cuid())
+
+  // Relations
+  reviewId String // ID de l'avis parent
+  userId   String // ID de l'utilisateur qui répond (OBLIGATOIRE)
+
+  // Contenu
+  authorName String // Nom de l'auteur de la réponse
+  replyText  String // Texte de la réponse
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  review ProductReview @relation("ReviewReplies", fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User          @relation("UserReplies", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("review_replies")
+}
+
+// ==========================================
+// ADRESSES
+// ==========================================
+
+model Address {
+  id     String @id @default(cuid())
+  userId String // Lié au User existant
+
+  // Intitulé de l'adresse
+  label String? // Ex: "Maison", "Bureau", "Parents"
+
+  // Données personnelles
+  civility Civility // Madame, Monsieur
+  fullName String // Nom complet
+  phone    String // Téléphone
+
+  // Adresse de livraison
+  country      String  @default("FR") // Pays
+  city         String // Ville
+  postalCode   String // Code postal
+  addressLine1 String // Adresse ligne 1
+  addressLine2 String? // Adresse ligne 2 (optionnel)
+
+  // Options par défaut
+  isDefaultShipping Boolean @default(false) // Adresse de livraison par défaut
+  isDefaultBilling  Boolean @default(false) // Adresse de facturation par défaut
+
+  // Dates
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime? // 🆕 Soft delete - null si actif, date si supprimé
+
+  // Relations
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shippingOrders Order[] @relation("ShippingAddress")
+  billingOrders  Order[] @relation("BillingAddress")
+
+  @@index([userId])
+  @@index([userId, isDefaultShipping])
+  @@index([userId, isDefaultBilling])
+  @@index([userId, deletedAt]) 
+  @@map("addresses")
+}
+
+enum Civility {
+  MR // Monsieur
+  MME // Madame
+}
+
+// ==========================================
+// COMMANDES
+// ==========================================
+
+model Order {
+  id          String @id @default(cuid())
+  orderNumber String @unique // Format: ORD-2025-000001
+  recepisseNumber Json?
+
+  // Utilisateur (User)
+  userId String
+
+  // Adresses
+  shippingAddressId String
+  billingAddressId  String
+
+  // Snapshot adresse de livraison
+  shippingCivility     String?
+  shippingFullName     String?
+  shippingPhone        String?
+  shippingCountry      String?
+  shippingCity         String?
+  shippingPostalCode   String?
+  shippingAddressLine1 String?
+  shippingAddressLine2 String?
+
+  // Snapshot adresse de facturation
+  billingCivility     String?
+  billingFullName     String?
+  billingPhone        String?
+  billingCountry      String?
+  billingCity         String?
+  billingPostalCode   String?
+  billingAddressLine1 String?
+  billingAddressLine2 String?
+
+  // Boutique
+  storeId  String
+  locality String // Martinique, Guadeloupe, Guyane
+
+  // Montants
+  subtotal       Decimal @db.Decimal(10, 2) // Sous-total articles
+  shippingCost   Decimal @default(0) @db.Decimal(10, 2) // Frais de livraison
+  taxAmount      Decimal @default(0) @db.Decimal(10, 2) // Montant TVA
+  discountAmount Decimal @default(0) @db.Decimal(10, 2) // Réduction
+  totalAmount    Decimal @db.Decimal(10, 2) // Total final
+
+  // POUR CHRONOPOST - Dimensions du colis
+  totalWeight Decimal? @db.Decimal(10, 3) // Poids total du colis en KG
+  totalLength Decimal? @db.Decimal(10, 2) // Longueur du colis en CM
+  totalWidth  Decimal? @db.Decimal(10, 2) // Largeur du colis en CM
+  totalHeight Decimal? @db.Decimal(10, 2) // Hauteur du colis en CM
+
+  // Statut
+  status         OrderStatus    @default(PENDING)
+  paymentStatus  PaymentStatus  @default(PENDING)
+  shippingStatus ShippingStatus @default(PENDING)
+
+  // Paiement
+  paymentMethod   PaymentMethod
+  paymentProvider String? // "stripe", "alma"
+  paymentIntentId String? // ID Stripe/Alma
+  stripeSessionId String?
+
+  // Notes et tracking
+  customerNote   String?
+  internalNote   String?
+  trackingNumber String?
+  trackingUrl    String?
+
+  // AJOUTS POUR CHRONOPOST
+  chronopostLabel         String? // PDF base64 de l'étiquette
+  chronopostSkybillNumber String? // Numéro de colis Chronopost
+  labelGeneratedAt        DateTime? // Date de génération
+  chronopostAccount       String? // Compte utilisé (11921204, 11893804, 11857604)
+  chronopostProductCode   String? // Code produit (17 pour livraison à domicile)
+  chronopostError         String? // Erreur de génération d'étiquette (si échec)
+  chronopostRetries       Int       @default(0) // Nombre de tentatives
+  pickupRequested         Boolean   @default(false) // Enlèvement demandé ?
+  pickupRequestedAt       DateTime? // Date de demande d'enlèvement
+  pickupConfirmed         Boolean   @default(false) // Enlèvement confirmé ?
+
+  // Dates
+  orderedAt   DateTime  @default(now())
+  paidAt      DateTime?
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  user            User                 @relation(fields: [userId], references: [id])
+  shippingAddress Address              @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+  billingAddress  Address              @relation("BillingAddress", fields: [billingAddressId], references: [id])
+  store           Store                @relation("StoreOrders", fields: [storeId], references: [id])
+  items           OrderItem[]
+  payments        Payment[]
+  statusHistory   OrderStatusHistory[]
+
+  @@index([orderNumber])
+  @@index([userId])
+  @@index([storeId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([orderedAt])
+  @@map("orders")
+}
+
+// ==========================================
+// ARTICLES DE COMMANDE
+// ==========================================
+
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+
+  // Article commandé
+  articleId      String? // Peut être null si l'article est supprimé après la commande
+  productModelId String
+  variantId      String
+  colorId        String
+
+  // Snapshot des données au moment de la commande (pour historique)
+  productName String
+  brand       String
+  colorName   String
+  colorHex    String
+  storage     String?
+  imageUrl    String
+
+  // Prix et quantité
+  quantity   Int
+  unitPrice  Decimal @db.Decimal(10, 2)
+  totalPrice Decimal @db.Decimal(10, 2) // unitPrice * quantity
+
+  // TVA
+  taxRate   Decimal @db.Decimal(5, 2)
+  taxAmount Decimal @db.Decimal(10, 2)
+
+  // Dates
+  createdAt DateTime @default(now())
+
+  // Relations
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  article Article? @relation("OrderedArticles", fields: [articleId], references: [id])
+
+  @@index([orderId])
+  @@index([articleId])
+  @@map("order_items")
+}
+
+// ==========================================
+// PAIEMENTS
+// ==========================================
+
+model Payment {
+  id      String @id @default(cuid())
+  orderId String
+
+  // Montant
+  amount   Decimal @db.Decimal(10, 2)
+  currency String  @default("EUR")
+
+  // Provider (Stripe ou Alma)
+  provider          String // "stripe" ou "alma"
+  providerPaymentId String // payment_intent_id de Stripe ou payment_id d'Alma
+
+  // Statut
+  status PaymentStatus @default(PENDING)
+
+  // Méthode
+  method PaymentMethod
+
+  // Paiement fractionné (Alma)
+  installments    Int? // Nombre de versements (2, 3, 4 pour Alma)
+  installmentPlan Json? // Détail du plan de paiement
+
+  // Métadonnées
+  metadata Json?
+
+  // Dates
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+  failedAt    DateTime?
+  refundedAt  DateTime?
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([providerPaymentId])
+  @@index([status])
+  @@map("payments")
+}
+
+// ==========================================
+// HISTORIQUE DES STATUTS
+// ==========================================
+
+model OrderStatusHistory {
+  id      String @id @default(cuid())
+  orderId String
+
+  // Changement de statut
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+
+  // Qui et quand
+  changedBy String? // ID de l'utilisateur qui a fait le changement
+  note      String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("order_status_history")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum OrderStatus {
+  PENDING // En attente de paiement
+  CONFIRMED // Paiement confirmé
+  PROCESSING // En préparation
+  READY_TO_SHIP // Prêt à expédier
+  SHIPPED // Expédié
+  DELIVERED // Livré
+  CANCELLED // Annulé
+  REFUNDED // Remboursé
+}
+
+enum PaymentStatus {
+  PENDING // En attente
+  PROCESSING // En cours de traitement
+  SUCCEEDED // Réussi
+  FAILED // Échoué
+  CANCELLED // Annulé
+  REFUNDED // Remboursé
+  PARTIALLY_REFUNDED // Partiellement remboursé
+}
+
+enum ShippingStatus {
+  PENDING // En attente
+  PROCESSING // En préparation
+  READY // Prêt
+  SHIPPED // Expédié
+  IN_TRANSIT // En transit
+  OUT_FOR_DELIVERY // En cours de livraison
+  DELIVERED // Livré
+  FAILED // Échec de livraison
+  RETURNED // Retourné
+}
+
+enum PaymentMethod {
+  CARD // Carte bancaire (Stripe)
+  ALMA_2X // Alma 2x
+  ALMA_3X // Alma 3x
+  ALMA_4X // Alma 4x
+  BANK_TRANSFER // Virement bancaire
+  CASH // Espèces (en magasin)
+}
+
+// ==========================================
+// COMPARATEUR DE PRODUITS
+// ==========================================
+
+model ProductComparison {
+  id String @id @default(cuid())
+
+  // Utilisateur (optionnel si non connecté)
+  userId String?
+
+  // Produits comparés (1 à 3 produits)
+  productIds String[] // Array des IDs des ProductModel
+
+  // Métadonnées
+  sessionId String? // Pour identifier les sessions anonymes
+  ipAddress String? // Pour analytics
+  userAgent String? // Pour analytics
+
+  // Dates
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([sessionId])
+  @@map("product_comparisons")
+}
+
+// ==========================================
+// LISTE DE SOUHAITS (WISHLIST)
+// ==========================================
+model WishlistItem {
+  id            String       @id @default(cuid())
+  userId        String
+  productModelId String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productModel ProductModel @relation(fields: [productModelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productModelId])
+  @@index([userId])
+  @@index([productModelId])
+  @@index([createdAt])
+  @@map("wishlist_items")
+}
+
+// ==========================================
+// BOUTIQUES PHYSIQUES (OFFLINE STORES)
+// ==========================================
+model OfflineStoreLocation {
+  id              String   @id @default(cuid())
+  nom             String
+  departement     String // Martinique, Guadeloupe, Guyane
+  adresse         String
+  latitude        Decimal  @db.Decimal(10, 8)
+  longitude       Decimal  @db.Decimal(11, 8)
+  telephone       String?
+  google_map_link String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([departement])
+  @@map("offline_stores_locations")
+}
+
+// ==========================================
+// NEWSLETTER SUBSCRIBERS
+// ==========================================
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([createdAt])
+  @@map("newsletter_subscribers")
+}

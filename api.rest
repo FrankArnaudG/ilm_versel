@@ -1,0 +1,2397 @@
+### ============================================
+### POST - Créer une nouvelle boutique
+### ============================================
+POST http://localhost:3000/api/stores
+Content-Type: application/json
+
+{
+    "user_id": "cmgzbug680000xd38raioqkcp",
+    "role": "SUPER_ADMIN",
+    "store_code": "BOUT0005",
+    "store_name": "I Love Mobile Marseille",
+    "store_country": "France",
+    "store_city": "Marseille",
+    "store_department": "Bouches-du-Rhône",
+    "store_address": "52 La Canebière, 13001 Marseille",
+    "store_phone": "+33491000000",
+    "store_email": "marseille@ilovemobile.fr",
+    "store_currency": "EUR",
+    "store_timezone": "Europe/Paris",
+    "store_status": "ACTIVE",
+    "store_openingDate": "2024-01-15T00:00:00.000Z",
+    "store_managerEmail": "worldcartoonstories@gmail.com",
+    "store_company": "I Love Mobile France"
+}
+
+### ============================================
+### GET - Voir toutes les boutiques (SUPER_ADMIN)
+### ============================================
+GET http://localhost:3000/api/stores?user_id=cmgs7ozsz0000u4i8za1xioom&role=SUPER_ADMIN
+
+### ============================================
+### GET - Voir toutes les boutiques (OPERATIONS_DIRECTOR)
+### ============================================
+GET http://localhost:3000/api/stores?user_id=cmgt8abc10000u45s1def2ghi&role=OPERATIONS_DIRECTOR
+
+### ============================================
+### GET - Voir sa propre boutique (STORE_MANAGER)
+### ============================================
+GET http://localhost:3000/api/stores?user_id=cmgt9hwz50000u45s0ca4h0qr&role=STORE_MANAGER
+
+### ============================================
+### GET - Voir avec un rôle secondaire (DATA_ANALYST)
+### ============================================
+GET http://localhost:3000/api/stores?user_id=cmgs7ozsz0000u4i8za1xioom&role=DATA_ANALYST
+
+### ============================================
+### GET - Utilisateur sans permissions (SALES_REPRESENTATIVE)
+### Devrait retourner une erreur 403
+### ============================================
+GET http://localhost:3000/api/stores?user_id=cmgt5xyz90000u45s2bcd3efg&role=SALES_REPRESENTATIVE
+
+### ============================================
+### GET - Sans paramètre user_id (Erreur attendue)
+### ============================================
+GET http://localhost:3000/api/stores?role=SUPER_ADMIN
+
+### ============================================
+### GET - Sans paramètre role (Erreur attendue)
+### ============================================
+GET http://localhost:3000/api/stores?user_id=cmgs7ozsz0000u4i8za1xioom
+
+### ============================================
+### POST - Créer une boutique avec rôle secondaire
+### ============================================
+POST http://localhost:3000/api/stores
+Content-Type: application/json
+
+{
+    "user_id": "cmgt6def40000u45s3fgh4ijk",
+    "role": "OPERATIONS_DIRECTOR",
+    "store_code": "BOUT0006",
+    "store_name": "I Love Mobile Lyon",
+    "store_country": "France",
+    "store_city": "Lyon",
+    "store_department": "Rhône",
+    "store_address": "25 Rue de la République, 69002 Lyon",
+    "store_phone": "+33478000000",
+    "store_email": "lyon@ilovemobile.fr",
+    "store_currency": "EUR",
+    "store_timezone": "Europe/Paris",
+    "store_status": "ACTIVE",
+    "store_openingDate": "2024-02-01T00:00:00.000Z",
+    "store_managerEmail": "manager.lyon@ilovemobile.fr",
+    "store_company": "I Love Mobile France"
+}
+
+### ============================================
+### POST - Créer une boutique avec code existant (Erreur attendue)
+### ============================================
+POST http://localhost:3000/api/stores
+Content-Type: application/json
+
+{
+    "user_id": "cmgs7ozsz0000u4i8za1xioom",
+    "role": "SUPER_ADMIN",
+    "store_code": "BOUT0005",
+    "store_name": "I Love Mobile Nice",
+    "store_country": "France",
+    "store_city": "Nice",
+    "store_department": "Alpes-Maritimes",
+    "store_address": "15 Avenue Jean Médecin, 06000 Nice",
+    "store_managerEmail": "manager.nice@ilovemobile.fr"
+}
+
+### ============================================
+### POST - Créer une boutique avec manager inexistant (Erreur attendue)
+### ============================================
+POST http://localhost:3000/api/stores
+Content-Type: application/json
+
+{
+    "user_id": "cmgs7ozsz0000u4i8za1xioom",
+    "role": "SUPER_ADMIN",
+    "store_code": "BOUT0007",
+    "store_name": "I Love Mobile Toulouse",
+    "store_country": "France",
+    "store_city": "Toulouse",
+    "store_department": "Haute-Garonne",
+    "store_address": "10 Rue d'Alsace-Lorraine, 31000 Toulouse",
+    "store_managerEmail": "manager.inexistant@ilovemobile.fr"
+}
+
+### ============================================
+### POST - Créer une boutique sans permissions (Erreur attendue)
+### ============================================
+POST http://localhost:3000/api/stores
+Content-Type: application/json
+
+{
+    "user_id": "cmgt9hwz50000u45s0ca4h0qr",
+    "role": "STORE_MANAGER",
+    "store_code": "BOUT0008",
+    "store_name": "I Love Mobile Bordeaux",
+    "store_country": "France",
+    "store_city": "Bordeaux",
+    "store_department": "Gironde",
+    "store_address": "50 Cours de l'Intendance, 33000 Bordeaux",
+    "store_managerEmail": "manager.bordeaux@ilovemobile.fr"
+}
+
+### ============================================
+### POST - Créer une boutique avec champs manquants (Erreur attendue)
+### ============================================
+POST http://localhost:3000/api/stores
+Content-Type: application/json
+
+{
+    "user_id": "cmgs7ozsz0000u4i8za1xioom",
+    "role": "SUPER_ADMIN",
+    "store_code": "BOUT0009",
+    "store_name": "I Love Mobile Lille"
+}
+
+############################################################################################################
+
+
+// ============================================
+// Fichier de test: api-tests.http
+// ============================================
+
+/*
+### ============================================
+### GET - Détails d'une boutique (SUPER_ADMIN)
+### ============================================
+GET http://localhost:3000/api/stores/cmgtldzay0005u46ke0sgdwo7?user_id=cmgs7ozsz0000u4i8za1xioom&role=SUPER_ADMIN
+
+### ============================================
+### GET - Détails de sa propre boutique (STORE_MANAGER)
+### ============================================
+GET http://localhost:3000/api/stores/cmguuqope0004u4j8557pt40m?user_id=cmgt9hwz50000u45s0ca4h0qr&role=STORE_MANAGER
+
+### ============================================
+### GET - Détails avec rôle secondaire (DATA_ANALYST)
+### ============================================
+GET http://localhost:3000/api/stores/cm123abc456?user_id=cmgs7ozsz0000u4i8za1xioom&role=DATA_ANALYST
+
+### ============================================
+### GET - Boutique d'une autre entreprise (Erreur attendue)
+### ============================================
+GET http://localhost:3000/api/stores/cm999xyz789?user_id=cmgt9hwz50000u45s0ca4h0qr&role=STORE_MANAGER
+
+### ============================================
+### GET - Boutique inexistante (Erreur 404)
+### ============================================
+GET http://localhost:3000/api/stores/invalid-id?user_id=cmgs7ozsz0000u4i8za1xioom&role=SUPER_ADMIN
+
+### ============================================
+### GET - Sans paramètres (Erreur 400)
+### ============================================
+GET http://localhost:3000/api/stores/cm123abc456
+*/
+
+
+###################################################################################################################
+
+// ============================================
+// Fichier de test: api-tests.http
+// ============================================
+
+/*
+### ============================================
+### PUT - Modifier une boutique (SUPER_ADMIN)
+### ============================================
+PUT http://localhost:3000/api/stores/cm123abc456
+Content-Type: application/json
+
+{
+    "user_id": "cmgs7ozsz0000u4i8za1xioom",
+    "role": "SUPER_ADMIN",
+    "store_name": "I Love Mobile Paris Centre",
+    "store_city": "Paris",
+    "store_department": "75 - Paris",
+    "store_phone": "+33144556677",
+    "store_status": "ACTIVE"
+}
+
+### ============================================
+### PUT - Modifier le manager d'une boutique
+### ============================================
+PUT http://localhost:3000/api/stores/cm123abc456
+Content-Type: application/json
+
+{
+    "user_id": "cmgs7ozsz0000u4i8za1xioom",
+    "role": "SUPER_ADMIN",
+    "store_managerEmail": "nouveau.manager@ilovemobile.fr"
+}
+
+### ============================================
+### PUT - Changer le statut (INACTIVE)
+### ============================================
+PUT http://localhost:3000/api/stores/cm123abc456
+Content-Type: application/json
+
+{
+    "user_id": "cmgs7ozsz0000u4i8za1xioom",
+    "role": "OPERATIONS_DIRECTOR",
+    "store_status": "INACTIVE"
+}
+
+### ============================================
+### PUT - Modifier sa propre boutique (STORE_MANAGER)
+### ============================================
+PUT http://localhost:3000/api/stores/cm123abc456
+Content-Type: application/json
+
+{
+    "user_id": "cmgt9hwz50000u45s0ca4h0qr",
+    "role": "STORE_MANAGER",
+    "store_phone": "+33199887766",
+    "store_email": "paris@ilovemobile.fr"
+}
+
+### ============================================
+### PUT - Modifier avec code existant (Erreur 409)
+### ============================================
+PUT http://localhost:3000/api/stores/cm123abc456
+Content-Type: application/json
+
+{
+    "user_id": "cmgs7ozsz0000u4i8za1xioom",
+    "role": "SUPER_ADMIN",
+    "store_code": "BOUT0002"
+}
+
+### ============================================
+### PUT - Sans permissions (Erreur 403)
+### ============================================
+PUT http://localhost:3000/api/stores/cm123abc456
+Content-Type: application/json
+
+{
+    "user_id": "cmgt5xyz90000u45s2bcd3efg",
+    "role": "SALES_REPRESENTATIVE",
+    "store_name": "Nouvelle boutique"
+}
+
+### ============================================
+### PUT - Boutique d'une autre entreprise (Erreur 403)
+### ============================================
+PUT http://localhost:3000/api/stores/cm999xyz789
+Content-Type: application/json
+
+{
+    "user_id": "cmgt9hwz50000u45s0ca4h0qr",
+    "role": "STORE_MANAGER",
+    "store_phone": "+33144556677"
+}
+*/
+
+
+################################################################################################################
+
+
+
+// ============================================
+// Fichier de test: api-tests.http
+// ============================================
+
+/*
+### ============================================
+### DELETE - Supprimer une boutique (SUPER_ADMIN avec rôle principal)
+### ============================================
+DELETE http://localhost:3000/api/stores/cm123abc456
+Content-Type: application/json
+
+{
+    "user_id": "cmgs7ozsz0000u4i8za1xioom",
+    "role": "SUPER_ADMIN"
+}
+
+### ============================================
+### DELETE - Tentative avec rôle secondaire (Erreur 403 attendue)
+### ============================================
+DELETE http://localhost:3000/api/stores/cm123abc456
+Content-Type: application/json
+
+{
+    "user_id": "cmgs7ozsz0000u4i8za1xioom",
+    "role": "DATA_ANALYST"
+}
+
+### ============================================
+### DELETE - Boutique avec employés actifs (Erreur 400 attendue)
+### ============================================
+DELETE http://localhost:3000/api/stores/cm123abc456
+Content-Type: application/json
+
+{
+    "user_id": "cmgs7ozsz0000u4i8za1xioom",
+    "role": "SUPER_ADMIN"
+}
+
+### ============================================
+### DELETE - Sans permissions (Erreur 403 attendue)
+### ============================================
+DELETE http://localhost:3000/api/stores/cm123abc456
+Content-Type: application/json
+
+{
+    "user_id": "cmgt9hwz50000u45s0ca4h0qr",
+    "role": "STORE_MANAGER"
+}
+
+### ============================================
+### DELETE - Boutique inexistante (Erreur 404)
+### ============================================
+DELETE http://localhost:3000/api/stores/invalid-id
+Content-Type: application/json
+
+{
+    "user_id": "cmgs7ozsz0000u4i8za1xioom",
+    "role": "SUPER_ADMIN"
+}
+
+### ============================================
+### DELETE - Sans paramètres (Erreur 400)
+### ============================================
+DELETE http://localhost:3000/api/stores/cm123abc456
+Content-Type: application/json
+
+{}
+*/
+
+
+
+####################################################################################################
+### ============================================
+### API TESTS - PRODUCT MODELS
+### ============================================
+### Extension VSCode recommandée: REST Client
+### ============================================
+
+@baseUrl = http://localhost:3000
+@userId = cmgz1i7cr0000xd2kf1ca4sds
+@supplierId = cmgz3spzn0007xd2kamp69f2y
+
+### ============================================
+### 1. CRÉATION MODÈLE COMPLET - SUCCESS
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "cmgzbug680000xd38raioqkcp",
+  "role": "SUPER_ADMIN",
+  "designation": "iPhone 15 Pro Max",
+  "brand": "Apple",
+  "reference": "APL-IP15PM-001",
+  "category": "Téléphones",
+  "family": "Smartphones",
+  "subFamily": "Haut de gamme",
+  "description": "Le dernier flagship d'Apple avec puce A17 Pro et appareil photo 48MP",
+  "status": "ACTIVE",
+  "specifications": {
+    "ecran": "6.7 pouces Super Retina XDR OLED",
+    "processeur": "Apple A17 Pro",
+    "ram": "8GB",
+    "camera": "Triple 48MP + 12MP + 12MP",
+    "batterie": "4422 mAh",
+    "os": "iOS 17"
+  },
+  "colors": [
+    {
+      "colorName": "Titane Noir",
+      "hexaColor": "#1a1a1a",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1663499482523-1c0c1bae4ce1?w=800",
+          "fileName": "iphone-15-pro-black-front.jpg",
+          "displayOrder": 0
+        },
+        {
+          "url": "https://images.unsplash.com/photo-1663499482523-1c0c1bae4ce1?w=800&q=80",
+          "fileName": "iphone-15-pro-black-back.jpg",
+          "displayOrder": 1
+        }
+      ]
+    },
+    {
+      "colorName": "Titane Blanc",
+      "hexaColor": "#f5f5f5",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1592286927505-c0c8c40f29f1?w=800",
+          "fileName": "iphone-15-pro-white-front.jpg",
+          "displayOrder": 0
+        }
+      ]
+    },
+    {
+      "colorName": "Titane Bleu",
+      "hexaColor": "#3b82f6",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800",
+          "fileName": "iphone-15-pro-blue-front.jpg",
+          "displayOrder": 0
+        }
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "name": "128GB",
+      "useFCFA": false,
+      "pvTTC": 1199.99,
+      "pamp": 850.00,
+      "oldPrice": 1299.99,
+      "margin": 35.29,
+      "tva": 20,
+      "pvTTC_FCFA": 787148,
+      "pamp_FCFA": 557557,
+      "oldPrice_FCFA": 852705,
+      "marginFCFA": 229591,
+      "specifications": {
+        "stockage": "128GB NVMe",
+        "disponibilite": "En stock"
+      }
+    },
+    {
+      "name": "256GB",
+      "useFCFA": false,
+      "pvTTC": 1299.99,
+      "pamp": 920.00,
+      "oldPrice": 1399.99,
+      "margin": 35.33,
+      "tva": 20,
+      "pvTTC_FCFA": 852705,
+      "pamp_FCFA": 603480,
+      "oldPrice_FCFA": 918300,
+      "marginFCFA": 249225,
+      "specifications": {
+        "stockage": "256GB NVMe",
+        "disponibilite": "En stock"
+      }
+    },
+    {
+      "name": "512GB",
+      "useFCFA": false,
+      "pvTTC": 1499.99,
+      "pamp": 1050.00,
+      "oldPrice": 1599.99,
+      "margin": 36.67,
+      "tva": 20,
+      "pvTTC_FCFA": 983853,
+      "pamp_FCFA": 688755,
+      "oldPrice_FCFA": 1049448,
+      "marginFCFA": 295098,
+      "specifications": {
+        "stockage": "512GB NVMe",
+        "disponibilite": "En stock"
+      }
+    },
+    {
+      "name": "1TB",
+      "useFCFA": false,
+      "pvTTC": 1799.99,
+      "pamp": 1250.00,
+      "oldPrice": 1899.99,
+      "margin": 36.80,
+      "tva": 20,
+      "pvTTC_FCFA": 1180746,
+      "pamp_FCFA": 819946,
+      "oldPrice_FCFA": 1246339,
+      "marginFCFA": 360800,
+      "specifications": {
+        "stockage": "1TB NVMe",
+        "disponibilite": "Stock limité"
+      }
+    }
+  ],
+  "recommendedProducts": [
+    {
+      "recommendedProductId": "prod-airpods-pro-2",
+      "priority": 1,
+      "relationType": "COMPLEMENTARY",
+      "bundleDiscount": 10,
+      "bundlePrice": 1399.99,
+      "description": "AirPods Pro 2 - Audio spatial et réduction de bruit active"
+    },
+    {
+      "recommendedProductId": "prod-magsafe-charger",
+      "priority": 2,
+      "relationType": "ACCESSORY",
+      "bundleDiscount": 5,
+      "description": "Chargeur MagSafe officiel Apple"
+    },
+    {
+      "recommendedProductId": "prod-clear-case",
+      "priority": 3,
+      "relationType": "ACCESSORY",
+      "description": "Coque transparente avec MagSafe"
+    }
+  ]
+}
+
+
+### ============================================
+### 1. CRÉATION MODÈLE SANS RECOMMANDATIONS - SUCCESS ✅
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "cmgzbug680000xd38raioqkcp",
+  "role": "SUPER_ADMIN",
+  "designation": "Tab 15 Pro Max",
+  "brand": "Sam",
+  "reference": "APL-I15PM-001",
+  "category": "Tab",
+  "family": "Smartphones",
+  "subFamily": "Haut de gamme",
+  "description": "Le dernier flagship d'Apple avec puce A17 Pro et appareil photo 48MP",
+  "status": "ACTIVE",
+  "specifications": {
+    "ecran": "6.7 pouces Super Retina XDR OLED",
+    "processeur": "Apple A17 Pro",
+    "ram": "8GB",
+    "camera": "Triple 48MP + 12MP + 12MP",
+    "batterie": "4422 mAh",
+    "os": "iOS 17"
+  },
+  "colors": [
+    {
+      "colorName": "Titane Noir",
+      "hexaColor": "#1a1a1a",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1663499482523-1c0c1bae4ce1?w=800",
+          "fileName": "iphone-15-pro-black-front.jpg",
+          "displayOrder": 0
+        },
+        {
+          "url": "https://images.unsplash.com/photo-1663499482523-1c0c1bae4ce1?w=800&q=80",
+          "fileName": "iphone-15-pro-black-back.jpg",
+          "displayOrder": 1
+        }
+      ]
+    },
+    {
+      "colorName": "Titane Blanc",
+      "hexaColor": "#f5f5f5",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1592286927505-c0c8c40f29f1?w=800",
+          "fileName": "iphone-15-pro-white-front.jpg",
+          "displayOrder": 0
+        }
+      ]
+    },
+    {
+      "colorName": "Titane Bleu",
+      "hexaColor": "#3b82f6",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800",
+          "fileName": "iphone-15-pro-blue-front.jpg",
+          "displayOrder": 0
+        }
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "name": "128GB",
+      "useFCFA": false,
+      "pvTTC": 1199.99,
+      "pamp": 850.00,
+      "oldPrice": 1299.99,
+      "margin": 35.29,
+      "tva": 20,
+      "pvTTC_FCFA": 787148,
+      "pamp_FCFA": 557557,
+      "oldPrice_FCFA": 852705,
+      "marginFCFA": 229591,
+      "specifications": {
+        "stockage": "128GB NVMe",
+        "disponibilite": "En stock"
+      }
+    },
+    {
+      "name": "256GB",
+      "useFCFA": false,
+      "pvTTC": 1299.99,
+      "pamp": 920.00,
+      "oldPrice": 1399.99,
+      "margin": 35.33,
+      "tva": 20,
+      "pvTTC_FCFA": 852705,
+      "pamp_FCFA": 603480,
+      "oldPrice_FCFA": 918300,
+      "marginFCFA": 249225,
+      "specifications": {
+        "stockage": "256GB NVMe",
+        "disponibilite": "En stock"
+      }
+    },
+    {
+      "name": "512GB",
+      "useFCFA": false,
+      "pvTTC": 1499.99,
+      "pamp": 1050.00,
+      "oldPrice": 1599.99,
+      "margin": 36.67,
+      "tva": 20,
+      "pvTTC_FCFA": 983853,
+      "pamp_FCFA": 688755,
+      "oldPrice_FCFA": 1049448,
+      "marginFCFA": 295098,
+      "specifications": {
+        "stockage": "512GB NVMe",
+        "disponibilite": "En stock"
+      }
+    },
+    {
+      "name": "1TB",
+      "useFCFA": false,
+      "pvTTC": 1799.99,
+      "pamp": 1250.00,
+      "oldPrice": 1899.99,
+      "margin": 36.80,
+      "tva": 20,
+      "pvTTC_FCFA": 1180746,
+      "pamp_FCFA": 819946,
+      "oldPrice_FCFA": 1246339,
+      "marginFCFA": 360800,
+      "specifications": {
+        "stockage": "1TB NVMe",
+        "disponibilite": "Stock limité"
+      }
+    }
+  ]
+}
+
+### ============================================
+### 2. CRÉATION MODÈLE SAMSUNG - MODE FCFA
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "cmgz1i7cr0000xd2kf1ca4sds",
+  "role": "OPERATIONS_DIRECTOR",
+  "designation": "Samsung Galaxy S24 Ultra",
+  "brand": "Samsung",
+  "reference": "SAM-S24U-001",
+  "category": "Téléphones",
+  "family": "Smartphones",
+  "subFamily": "Haut de gamme",
+  "description": "Galaxy S24 Ultra avec S Pen et zoom optique 100x",
+  "status": "ACTIVE",
+  "supplierId": "cmgz61loj000yxd2kb5wlc5jj",
+  "specifications": {
+    "ecran": "6.8 pouces Dynamic AMOLED 2X",
+    "processeur": "Snapdragon 8 Gen 3",
+    "ram": "12GB",
+    "camera": "Quad 200MP + 50MP + 12MP + 10MP",
+    "batterie": "5000 mAh",
+    "os": "Android 14 (One UI 6)"
+  },
+  "colors": [
+    {
+      "colorName": "Titanium Black",
+      "hexaColor": "#000000",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800",
+          "fileName": "s24-ultra-black.jpg",
+          "displayOrder": 0
+        }
+      ]
+    },
+    {
+      "colorName": "Titanium Violet",
+      "hexaColor": "#8b5cf6",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800",
+          "fileName": "s24-ultra-violet.jpg",
+          "displayOrder": 0
+        }
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "name": "256GB",
+      "useFCFA": true,
+      "pvTTC": 1067.50,
+      "pamp": 750.00,
+      "oldPrice": 1143.75,
+      "margin": 36.33,
+      "tva": 18,
+      "pvTTC_FCFA": 700000,
+      "pamp_FCFA": 492000,
+      "oldPrice_FCFA": 750000,
+      "marginFCFA": 208000,
+      "specifications": {
+        "stockage": "256GB UFS 4.0",
+        "disponibilite": "En stock"
+      }
+    },
+    {
+      "name": "512GB",
+      "useFCFA": true,
+      "pvTTC": 1219.51,
+      "pamp": 850.00,
+      "oldPrice": 1295.96,
+      "margin": 37.65,
+      "tva": 18,
+      "pvTTC_FCFA": 800000,
+      "pamp_FCFA": 557500,
+      "oldPrice_FCFA": 850000,
+      "marginFCFA": 242500,
+      "specifications": {
+        "stockage": "512GB UFS 4.0",
+        "disponibilite": "En stock"
+      }
+    }
+  ],
+  "recommendedProducts": [
+    {
+      "recommendedProductId": "prod-galaxy-buds-pro",
+      "priority": 1,
+      "relationType": "COMPLEMENTARY",
+      "bundleDiscount": 8,
+      "description": "Galaxy Buds Pro 2 - Audio immersif"
+    }
+  ]
+}
+
+### ============================================
+### 3. CRÉATION MODÈLE XIAOMI - SIMPLE
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "INVENTORY_MANAGER",
+  "designation": "Xiaomi 13 Pro",
+  "brand": "Xiaomi",
+  "reference": "XIA-13P-001",
+  "category": "Téléphones",
+  "family": "Smartphones",
+  "subFamily": "Milieu de gamme",
+  "description": "Xiaomi 13 Pro - Performance et design premium",
+  "status": "ACTIVE",
+  "supplierId": "{{supplierId}}",
+  "colors": [
+    {
+      "colorName": "Noir",
+      "hexaColor": "#000000",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800",
+          "fileName": "xiaomi-13-pro-black.jpg",
+          "displayOrder": 0
+        }
+      ]
+    },
+    {
+      "colorName": "Blanc",
+      "hexaColor": "#ffffff",
+      "images": []
+    }
+  ],
+  "variants": [
+    {
+      "name": "256GB",
+      "useFCFA": false,
+      "pvTTC": 699.99,
+      "pamp": 500.00,
+      "oldPrice": 0,
+      "margin": 34.00,
+      "tva": 20,
+      "pvTTC_FCFA": 459170,
+      "pamp_FCFA": 327979,
+      "oldPrice_FCFA": 0,
+      "marginFCFA": 131191
+    }
+  ]
+}
+
+### ============================================
+### 4. ERREUR - Référence déjà existante
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "designation": "iPhone 15 Pro Max Duplicate",
+  "brand": "Apple",
+  "reference": "APL-IP15PM-001",
+  "category": "Téléphones",
+  "supplierId": "{{supplierId}}",
+  "colors": [
+    {
+      "colorName": "Noir",
+      "hexaColor": "#000000",
+      "images": []
+    }
+  ],
+  "variants": [
+    {
+      "name": "128GB",
+      "useFCFA": false,
+      "pvTTC": 999.99,
+      "pamp": 700.00,
+      "tva": 20
+    }
+  ]
+}
+
+### ============================================
+### 5. ERREUR - Champs obligatoires manquants
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "designation": "OnePlus 12",
+  "brand": "OnePlus"
+  // Manque: reference, category, supplierId, colors, variants
+}
+
+### ============================================
+### 6. ERREUR - Fournisseur inexistant
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "designation": "Google Pixel 8 Pro",
+  "brand": "Google",
+  "reference": "GOO-PIX8P-001",
+  "category": "Téléphones",
+  "supplierId": "supplier-inexistant-999",
+  "colors": [
+    {
+      "colorName": "Noir",
+      "hexaColor": "#000000",
+      "images": []
+    }
+  ],
+  "variants": [
+    {
+      "name": "128GB",
+      "useFCFA": false,
+      "pvTTC": 899.99,
+      "pamp": 650.00,
+      "tva": 20
+    }
+  ]
+}
+
+### ============================================
+### 7. ERREUR - Aucune couleur
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "designation": "Nothing Phone 2",
+  "brand": "Nothing",
+  "reference": "NOT-PH2-001",
+  "category": "Téléphones",
+  "supplierId": "{{supplierId}}",
+  "colors": [],
+  "variants": [
+    {
+      "name": "256GB",
+      "useFCFA": false,
+      "pvTTC": 599.99,
+      "pamp": 420.00,
+      "tva": 20
+    }
+  ]
+}
+
+### ============================================
+### 8. ERREUR - Aucune variante
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "designation": "Motorola Edge 40 Pro",
+  "brand": "Motorola",
+  "reference": "MOT-E40P-001",
+  "category": "Téléphones",
+  "supplierId": "{{supplierId}}",
+  "colors": [
+    {
+      "colorName": "Noir",
+      "hexaColor": "#000000",
+      "images": []
+    }
+  ],
+  "variants": []
+}
+
+### ============================================
+### 9. ERREUR - Permission refusée (USER)
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "USER",
+  "designation": "OPPO Find X6 Pro",
+  "brand": "OPPO",
+  "reference": "OPP-FX6P-001",
+  "category": "Téléphones",
+  "supplierId": "{{supplierId}}",
+  "colors": [
+    {
+      "colorName": "Noir",
+      "hexaColor": "#000000",
+      "images": []
+    }
+  ],
+  "variants": [
+    {
+      "name": "256GB",
+      "useFCFA": false,
+      "pvTTC": 799.99,
+      "pamp": 560.00,
+      "tva": 20
+    }
+  ]
+}
+
+### ============================================
+### 10. ERREUR - Utilisateur inexistant
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "user-inexistant-999",
+  "role": "SUPER_ADMIN",
+  "designation": "Huawei P60 Pro",
+  "brand": "Huawei",
+  "reference": "HUA-P60P-001",
+  "category": "Téléphones",
+  "supplierId": "{{supplierId}}",
+  "colors": [
+    {
+      "colorName": "Noir",
+      "hexaColor": "#000000",
+      "images": []
+    }
+  ],
+  "variants": [
+    {
+      "name": "256GB",
+      "useFCFA": false,
+      "pvTTC": 899.99,
+      "pamp": 630.00,
+      "tva": 20
+    }
+  ]
+}
+
+### ============================================
+### 11. CRÉATION MODÈLE TABLETTE - AVEC SPECS
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "designation": "iPad Pro 12.9 (M2)",
+  "brand": "Apple",
+  "reference": "APL-IPADPM2-001",
+  "category": "Tablettes",
+  "family": "Tablettes Pro",
+  "subFamily": "Haut de gamme",
+  "description": "iPad Pro 12.9 pouces avec puce M2 et écran Liquid Retina XDR",
+  "status": "ACTIVE",
+  "supplierId": "{{supplierId}}",
+  "specifications": {
+    "ecran": "12.9 pouces Liquid Retina XDR",
+    "processeur": "Apple M2",
+    "ram": "8GB / 16GB",
+    "camera": "12MP + 10MP ultra grand-angle",
+    "batterie": "40.88 Wh",
+    "os": "iPadOS 17",
+    "connectivite": "WiFi 6E + 5G",
+    "ports": "Thunderbolt / USB 4",
+    "accessoires": "Compatible Magic Keyboard et Apple Pencil 2"
+  },
+  "colors": [
+    {
+      "colorName": "Gris Sidéral",
+      "hexaColor": "#6b7280",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800",
+          "fileName": "ipad-pro-gray-front.jpg",
+          "displayOrder": 0
+        },
+        {
+          "url": "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&q=80",
+          "fileName": "ipad-pro-gray-back.jpg",
+          "displayOrder": 1
+        }
+      ]
+    },
+    {
+      "colorName": "Argent",
+      "hexaColor": "#e5e7eb",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1585790050230-5dd28404ccb9?w=800",
+          "fileName": "ipad-pro-silver.jpg",
+          "displayOrder": 0
+        }
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "name": "128GB WiFi",
+      "useFCFA": false,
+      "pvTTC": 1299.99,
+      "pamp": 920.00,
+      "oldPrice": 1399.99,
+      "margin": 35.33,
+      "tva": 20,
+      "pvTTC_FCFA": 852705,
+      "pamp_FCFA": 603480,
+      "oldPrice_FCFA": 918300,
+      "marginFCFA": 249225,
+      "specifications": {
+        "stockage": "128GB",
+        "connectivite": "WiFi 6E uniquement",
+        "ram": "8GB"
+      }
+    },
+    {
+      "name": "256GB WiFi",
+      "useFCFA": false,
+      "pvTTC": 1499.99,
+      "pamp": 1050.00,
+      "oldPrice": 1599.99,
+      "margin": 36.67,
+      "tva": 20,
+      "pvTTC_FCFA": 983853,
+      "pamp_FCFA": 688755,
+      "oldPrice_FCFA": 1049448,
+      "marginFCFA": 295098,
+      "specifications": {
+        "stockage": "256GB",
+        "connectivite": "WiFi 6E uniquement",
+        "ram": "8GB"
+      }
+    },
+    {
+      "name": "512GB WiFi + 5G",
+      "useFCFA": false,
+      "pvTTC": 1899.99,
+      "pamp": 1320.00,
+      "oldPrice": 1999.99,
+      "margin": 37.65,
+      "tva": 20,
+      "pvTTC_FCFA": 1246339,
+      "pamp_FCFA": 865864,
+      "oldPrice_FCFA": 1311934,
+      "marginFCFA": 380475,
+      "specifications": {
+        "stockage": "512GB",
+        "connectivite": "WiFi 6E + 5G",
+        "ram": "8GB"
+      }
+    },
+    {
+      "name": "1TB WiFi + 5G",
+      "useFCFA": false,
+      "pvTTC": 2299.99,
+      "pamp": 1580.00,
+      "oldPrice": 2399.99,
+      "margin": 39.24,
+      "tva": 20,
+      "pvTTC_FCFA": 1508828,
+      "pamp_FCFA": 1036413,
+      "oldPrice_FCFA": 1574423,
+      "marginFCFA": 472415,
+      "specifications": {
+        "stockage": "1TB",
+        "connectivite": "WiFi 6E + 5G",
+        "ram": "16GB"
+      }
+    }
+  ],
+  "recommendedProducts": [
+    {
+      "recommendedProductId": "prod-magic-keyboard",
+      "priority": 1,
+      "relationType": "ACCESSORY",
+      "bundleDiscount": 15,
+      "bundlePrice": 1599.99,
+      "description": "Magic Keyboard pour iPad Pro 12.9 - Clavier rétroéclairé avec trackpad"
+    },
+    {
+      "recommendedProductId": "prod-apple-pencil-2",
+      "priority": 2,
+      "relationType": "ACCESSORY",
+      "bundleDiscount": 10,
+      "description": "Apple Pencil 2 - Pour le dessin et la prise de notes"
+    },
+    {
+      "recommendedProductId": "prod-ipad-pro-case",
+      "priority": 3,
+      "relationType": "ACCESSORY",
+      "description": "Smart Folio pour iPad Pro 12.9"
+    }
+  ]
+}
+
+### ============================================
+### 12. CRÉATION MODÈLE ACCESSOIRE
+### ============================================
+
+POST {{baseUrl}}/api/products/models
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "OPERATIONS_DIRECTOR",
+  "designation": "AirPods Pro 2ème génération",
+  "brand": "Apple",
+  "reference": "APL-AIRPODSP2-001",
+  "category": "Écouteurs",
+  "family": "Audio",
+  "subFamily": "Premium",
+  "description": "AirPods Pro avec réduction de bruit active et audio spatial personnalisé",
+  "status": "ACTIVE",
+  "supplierId": "{{supplierId}}",
+  "specifications": {
+    "type": "Intra-auriculaires sans fil",
+    "reduction_bruit": "Active (ANC)",
+    "audio_spatial": "Oui, personnalisé",
+    "autonomie": "Jusqu'à 6h (ANC activé)",
+    "boitier": "Jusqu'à 30h avec boîtier",
+    "resistance": "IPX4 (résistant à l'eau et à la sueur)",
+    "puce": "Apple H2",
+    "connectivite": "Bluetooth 5.3"
+  },
+  "colors": [
+    {
+      "colorName": "Blanc",
+      "hexaColor": "#ffffff",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=800",
+          "fileName": "airpods-pro-2-white.jpg",
+          "displayOrder": 0
+        }
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "name": "Standard",
+      "useFCFA": false,
+      "pvTTC": 279.99,
+      "pamp": 195.00,
+      "oldPrice": 299.99,
+      "margin": 37.33,
+      "tva": 20,
+      "pvTTC_FCFA": 183668,
+      "pamp_FCFA": 127911,
+      "oldPrice_FCFA": 196788,
+      "marginFCFA": 55757,
+      "specifications": {
+        "contenu": "AirPods Pro + Boîtier de charge MagSafe (USB-C) + 4 paires d'embouts en silicone"
+      }
+    }
+  ]
+}
+
+
+
+
+
+
+
+
+
+
+
+### ============================================================================
+### SUPPLIERS API TESTS
+### ============================================================================
+
+### 1. GET - Récupérer la liste de tous les fournisseurs
+GET {{baseUrl}}/api/suppliers?user_id=cmgzbug680000xd38raioqkcp&role=SUPER_ADMIN
+Content-Type: application/json
+
+###################################################################################################
+### ============================================
+### API TESTS - SUPPLIERS
+### ============================================
+### Extension VSCode recommandée: REST Client
+### ============================================
+ 
+@baseUrl = http://localhost:3000
+@userId = cmgs7ozsz0000u4i8za1xioom
+
+### ============================================
+### 1. CRÉATION FOURNISSEUR COMPLET - SUCCESS
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "cmhp930vj0000xd3wlyerwqeb",
+  "role": "SUPER_ADMIN",
+  "name": "E-ECOCOMAM",
+  "contactName": "3GWIN ECOCOMAM",
+  "phone": "+226 70 12 34 56",
+  "email": "ECOCOMAM@3GWIN.bf",
+  "address": "Avenue Kwame N'Krumah, Secteur 4, Ouagadougou",
+  "country": "Burkina Faso"
+}
+
+### ============================================
+### 2. CRÉATION FOURNISSEUR - FRANCE
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "OPERATIONS_DIRECTOR",
+  "name": "Global Import France",
+  "contactName": "Marie Dubois",
+  "phone": "+33 1 42 86 82 00",
+  "email": "m.dubois@globalimport.fr",
+  "address": "15 Rue de Rivoli, 75001 Paris",
+  "country": "France"
+}
+
+### ============================================
+### 3. CRÉATION FOURNISSEUR - CHINE
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "INVENTORY_MANAGER",
+  "name": "Shenzhen Tech Supply Co Ltd",
+  "contactName": "Wei Zhang",
+  "phone": "+86 755 8888 9999",
+  "email": "sales@shenzhentechsupply.cn",
+  "address": "Huaqiang North Road, Futian District, Shenzhen, Guangdong",
+  "country": "China"
+}
+
+### ============================================
+### 4. CRÉATION FOURNISSEUR MINIMAL - SUCCESS
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "name": "Phone Express BF",
+  "contactName": "Abdoul Traoré"
+}
+
+### ============================================
+### 5. CRÉATION FOURNISSEUR - CÔTE D'IVOIRE
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "OPERATIONS_DIRECTOR",
+  "name": "Ivoirian Mobile Distributors",
+  "contactName": "Kouassi N'Guessan",
+  "phone": "+225 27 20 30 40 50",
+  "email": "info@imd.ci",
+  "address": "Boulevard Latrille, Plateau, Abidjan",
+  "country": "Côte d'Ivoire"
+}
+
+### ============================================
+### 6. CRÉATION FOURNISSEUR - SÉNÉGAL
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "name": "Dakar Tech Hub",
+  "contactName": "Fatou Sall",
+  "phone": "+221 33 869 12 34",
+  "email": "contact@dakartechhub.sn",
+  "address": "Avenue Cheikh Anta Diop, Dakar",
+  "country": "Sénégal"
+}
+
+### ============================================
+### 7. CRÉATION FOURNISSEUR - DUBAI (UAE)
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "OPERATIONS_DIRECTOR",
+  "name": "Dubai Electronics Trading LLC",
+  "contactName": "Mohammed Al-Rashid",
+  "phone": "+971 4 123 4567",
+  "email": "sales@dubaielectronics.ae",
+  "address": "Deira, Dubai, United Arab Emirates",
+  "country": "United Arab Emirates"
+}
+
+### ============================================
+### 8. CRÉATION FOURNISSEUR - ALLEMAGNE
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "INVENTORY_MANAGER",
+  "name": "Berlin Tech Wholesale GmbH",
+  "contactName": "Klaus Mueller",
+  "phone": "+49 30 1234 5678",
+  "email": "info@berlintechgmbh.de",
+  "address": "Alexanderplatz 1, 10178 Berlin",
+  "country": "Germany"
+}
+
+### ============================================
+### 9. CRÉATION FOURNISSEUR - USA
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "name": "American Tech Distributors Inc",
+  "contactName": "John Smith",
+  "phone": "+1 415 555 0123",
+  "email": "john.smith@americantechdist.com",
+  "address": "123 Silicon Valley Blvd, San Francisco, CA 94102",
+  "country": "United States"
+}
+
+### ============================================
+### 10. CRÉATION FOURNISSEUR - SANS EMAIL/PHONE
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "OPERATIONS_DIRECTOR",
+  "name": "Local Supplier Ouaga",
+  "contactName": "Amadou Sankara",
+  "address": "Marché Central, Ouagadougou",
+  "country": "Burkina Faso"
+}
+
+### ============================================
+### 11. ERREUR - Nom déjà existant
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "name": "TechDistrib SARL",
+  "contactName": "Autre Contact"
+}
+
+### ============================================
+### 12. ERREUR - Nom déjà existant (casse différente)
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "name": "techdistrib sarl",
+  "contactName": "Test Contact"
+}
+
+### ============================================
+### 13. ERREUR - Email déjà utilisé
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "name": "Another Supplier",
+  "contactName": "Another Contact",
+  "email": "contact@techdistrib.bf"
+}
+
+### ============================================
+### 14. ERREUR - Email invalide
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "name": "Test Supplier Invalid Email",
+  "contactName": "Test Contact",
+  "email": "invalidemail@"
+}
+
+### ============================================
+### 15. ERREUR - Téléphone trop court
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "name": "Test Supplier Invalid Phone",
+  "contactName": "Test Contact",
+  "phone": "+226 12"
+}
+
+### ============================================
+### 16. ERREUR - Champs obligatoires manquants (name)
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "contactName": "Test Contact"
+}
+
+### ============================================
+### 17. ERREUR - Champs obligatoires manquants (contactName)
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "name": "Test Supplier No Contact"
+}
+
+### ============================================
+### 18. ERREUR - Permission refusée (USER)
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "USER",
+  "name": "Unauthorized Supplier",
+  "contactName": "Test Contact"
+}
+
+### ============================================
+### 19. ERREUR - Permission refusée (STORE_MANAGER)
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "STORE_MANAGER",
+  "name": "Store Manager Supplier",
+  "contactName": "Test Contact"
+}
+
+### ============================================
+### 20. ERREUR - Permission refusée (SALES_REPRESENTATIVE)
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SALES_REPRESENTATIVE",
+  "name": "Sales Rep Supplier",
+  "contactName": "Test Contact"
+}
+
+### ============================================
+### 21. ERREUR - Utilisateur inexistant
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "user-inexistant-999",
+  "role": "SUPER_ADMIN",
+  "name": "Test Supplier Invalid User",
+  "contactName": "Test Contact"
+}
+
+### ============================================
+### 22. ERREUR - user_id manquant
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "role": "SUPER_ADMIN",
+  "name": "Test Supplier No UserId",
+  "contactName": "Test Contact"
+}
+
+### ============================================
+### 23. CRÉATION FOURNISSEUR - Caractères spéciaux
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "name": "L'Étoile Technologique & Cie",
+  "contactName": "François-Xavier O'Brien",
+  "phone": "+33 1 42 86 82 00",
+  "email": "contact@letoile-tech.fr",
+  "address": "15 Rue de l'Église, 75015 Paris",
+  "country": "France"
+}
+
+### ============================================
+### 24. CRÉATION FOURNISSEUR - Nom très long
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "OPERATIONS_DIRECTOR",
+  "name": "International Mobile Phones and Electronic Devices Distribution Company Limited Partnership",
+  "contactName": "Alexander Montgomery-Worthington III",
+  "phone": "+44 20 7946 0958",
+  "email": "a.montgomery@internationalmobiledist.co.uk",
+  "country": "United Kingdom"
+}
+
+### ============================================
+### 25. CRÉATION FOURNISSEUR - MAROC
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "INVENTORY_MANAGER",
+  "name": "Casablanca Electronics SARL",
+  "contactName": "Youssef Benali",
+  "phone": "+212 5 22 12 34 56",
+  "email": "contact@casaelectronics.ma",
+  "address": "Boulevard Mohammed V, Casablanca",
+  "country": "Maroc"
+}
+
+### ============================================
+### 26. CRÉATION FOURNISSEUR - TUNISIE
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "name": "Tunis Tech Solutions",
+  "contactName": "Leila Ben Ahmed",
+  "phone": "+216 71 123 456",
+  "email": "info@tunistechsolutions.tn",
+  "address": "Avenue Habib Bourguiba, Tunis",
+  "country": "Tunisia"
+}
+
+### ============================================
+### 27. CRÉATION FOURNISSEUR - INDE
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "OPERATIONS_DIRECTOR",
+  "name": "Mumbai Electronics Pvt Ltd",
+  "contactName": "Rajesh Kumar",
+  "phone": "+91 22 1234 5678",
+  "email": "sales@mumbaielectronics.in",
+  "address": "Andheri East, Mumbai, Maharashtra 400069",
+  "country": "India"
+}
+
+### ============================================
+### 28. CRÉATION FOURNISSEUR - Email en majuscules
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "SUPER_ADMIN",
+  "name": "Test Uppercase Email Supplier",
+  "contactName": "Test Contact",
+  "email": "CONTACT@TESTUPPERCASE.COM",
+  "phone": "+226 70 11 22 33"
+}
+
+### ============================================
+### 29. CRÉATION FOURNISSEUR - Espaces dans les champs
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "OPERATIONS_DIRECTOR",
+  "name": "   Test Supplier With Spaces   ",
+  "contactName": "   Contact Name   ",
+  "phone": "   +226 70 99 88 77   ",
+  "email": "   trimtest@example.com   ",
+  "address": "   Test Address   "
+}
+
+### ============================================
+### 30. CRÉATION FOURNISSEUR - Numéros internationaux variés
+### ============================================
+
+POST {{baseUrl}}/api/suppliers
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "INVENTORY_MANAGER",
+  "name": "Global Phone Formats Test",
+  "contactName": "Various Formats",
+  "phone": "+1-415-555-0123",
+  "email": "global@phoneformats.test",
+  "country": "Test Country"
+}
+
+
+
+
+
+
+
+
+
+
+
+#################################################################################################################################################"
+### ============================================
+### POST /api/products/articles - Créer des articles
+### ============================================
+
+### Variables d'environnement
+@baseUrl = http://localhost:3000
+@userId = cm5abc123def456ghi789jkl
+@storeId = store_ouagadougou_001
+@supplierId = supplier_apple_001
+@modelId1 = model_iphone_15_pro
+@modelId2 = model_iphone_15
+@colorId1 = color_black
+@colorId2 = color_white
+@variantId1 = variant_128gb
+@variantId2 = variant_256gb
+
+### ============================================
+### Test 1 : Créer UN SEUL article (prix en EUR)
+### ============================================
+POST {{baseUrl}}/api/products/models/articles
+Content-Type: application/json
+
+{
+  "user_id": "cmgzbug680000xd38raioqkcp",
+  "role": "SUPER_ADMIN",
+  "store_id": "cmh6iqs3q001rxddwz9nelg52",
+  "supplier_id": "cmh3ncz930000xdl8rdbov58l",
+  "purchase_date": "2025-10-20T10:00:00Z",
+  "document_file": "facture_001.pdf",
+  "document_type": "BL",
+  "document_refs": "FAC-2025-001",
+  "import_source": "MANUAL",
+  "articles": [
+    {
+      "article_number": "ART-202r-001",
+      "reference": "IPHONE15PRO-128-BLK",
+      "model_reference": "IPHONE-15-PRO",
+      "description": "iPhone 15 Pro 128Go Noir - Neuf",
+      "model_id": "cmgzck7vm000gxdc4uu8jk3q3",
+      "color_id": "cmgzck7vm000mxdc49z8dl44c",
+      "pv_ttc": 1199.99,
+      "pamp": 899.99,
+      "old_price": 1299.99,
+      "tva": 240.00,
+      "margin": 300.00,
+      "margin_fcfa": 196500,
+      "margin_percent": 25.00,
+      "specifications": {
+        "screen": "6.1 inches",
+        "storage": "128GB",
+        "ram": "8GB",
+        "processor": "A17 Pro"
+      },
+      "condition": "NEW",
+      "status": "IN_STOCK",
+      "use_fcfa": false
+    }
+  ]
+}
+
+### ============================================
+### Test 2 : Créer PLUSIEURS articles (prix en FCFA)
+### ============================================
+POST {{baseUrl}}/api/products/articles
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "STOCK_MANAGER",
+  "store_id": "{{storeId}}",
+  "supplier_id": "{{supplierId}}",
+  "purchase_date": "2025-10-22T14:30:00Z",
+  "document_file": "facture_002.pdf",
+  "document_type": "INVOICE",
+  "document_refs": [
+    {
+      "name": "Facture",
+      "value": "FAC-2025-002"
+    }
+  ],
+  "import_source": "MANUAL",
+  "articles": [
+    {
+      "article_number": "ART-2025-002",
+      "reference": "IPHONE15PRO-256-WHT",
+      "model_reference": "IPHONE-15-PRO",
+      "description": "iPhone 15 Pro 256Go Blanc",
+      "model_id": "{{modelId1}}",
+      "color_id": "{{colorId2}}",
+      "variant_id": "{{variantId2}}",
+      "pv_ttc": 850000,
+      "pamp": 650000,
+      "tva": 170000,
+      "margin_fcfa": 200000,
+      "margin_percent": 23.53,
+      "specifications": {
+        "screen": "6.1 inches",
+        "storage": "256GB",
+        "ram": "8GB",
+        "processor": "A17 Pro"
+      },
+      "condition": "NEW",
+      "status": "AVAILABLE",
+      "use_fcfa": true
+    },
+    {
+      "article_number": "ART-2025-003",
+      "reference": "IPHONE15-128-BLK",
+      "model_reference": "IPHONE-15",
+      "description": "iPhone 15 128Go Noir",
+      "model_id": "{{modelId2}}",
+      "color_id": "{{colorId1}}",
+      "variant_id": "{{variantId1}}",
+      "pv_ttc": 650000,
+      "pamp": 500000,
+      "tva": 130000,
+      "margin_fcfa": 150000,
+      "margin_percent": 23.08,
+      "specifications": {
+        "screen": "6.1 inches",
+        "storage": "128GB",
+        "ram": "6GB",
+        "processor": "A16 Bionic"
+      },
+      "condition": "LIKE_NEW",
+      "status": "AVAILABLE",
+      "use_fcfa": true
+    }
+  ]
+}
+
+### ============================================
+### Test 3 : Créer plusieurs articles avec modèles DIFFÉRENTS (mix EUR/FCFA)
+### ============================================
+POST {{baseUrl}}/api/products/articles
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "STOCK_MANAGER",
+  "store_id": "{{storeId}}",
+  "supplier_id": "{{supplierId}}",
+  "purchase_date": "2025-10-23T09:00:00Z",
+  "document_file": "facture_003.pdf",
+  "document_type": "INVOICE",
+  "document_refs": [
+    {
+      "name": "Facture",
+      "value": "FAC-2025-003"
+    }
+  ],
+  "import_source": "MANUAL",
+  "articles": [
+    {
+      "article_number": "ART-2025-004",
+      "reference": "IPHONE15PRO-128-BLK-REF",
+      "model_reference": "IPHONE-15-PRO",
+      "description": "iPhone 15 Pro 128Go Noir - Reconditionné",
+      "model_id": "{{modelId1}}",
+      "color_id": "{{colorId1}}",
+      "variant_id": "{{variantId1}}",
+      "pv_ttc": 999.99,
+      "pamp": 750.00,
+      "old_price": 1199.99,
+      "tva": 200.00,
+      "margin": 249.99,
+      "margin_fcfa": 163743,
+      "margin_percent": 25.00,
+      "specifications": {
+        "screen": "6.1 inches",
+        "storage": "128GB",
+        "condition_details": "Excellent état, batterie 95%"
+      },
+      "condition": "REFURBISHED",
+      "status": "AVAILABLE",
+      "use_fcfa": false
+    },
+    {
+      "article_number": "ART-2025-005",
+      "reference": "IPHONE15-256-WHT",
+      "model_reference": "IPHONE-15",
+      "description": "iPhone 15 256Go Blanc",
+      "model_id": "{{modelId2}}",
+      "color_id": "{{colorId2}}",
+      "variant_id": "{{variantId2}}",
+      "pv_ttc": 750000,
+      "pamp": 580000,
+      "tva": 150000,
+      "margin_fcfa": 170000,
+      "margin_percent": 22.67,
+      "specifications": {
+        "screen": "6.1 inches",
+        "storage": "256GB",
+        "ram": "6GB"
+      },
+      "condition": "NEW",
+      "status": "AVAILABLE",
+      "use_fcfa": true
+    },
+    {
+      "article_number": "ART-2025-006",
+      "reference": "IPHONE15-128-WHT",
+      "model_reference": "IPHONE-15",
+      "description": "iPhone 15 128Go Blanc",
+      "model_id": "{{modelId2}}",
+      "color_id": "{{colorId2}}",
+      "variant_id": "{{variantId1}}",
+      "pv_ttc": 620000,
+      "pamp": 480000,
+      "tva": 124000,
+      "margin_fcfa": 140000,
+      "margin_percent": 22.58,
+      "condition": "LIKE_NEW",
+      "status": "AVAILABLE",
+      "use_fcfa": true
+    }
+  ]
+}
+
+### ============================================
+### Test 4 : Import depuis Excel
+### ============================================
+POST {{baseUrl}}/api/products/articles
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "ADMIN",
+  "store_id": "{{storeId}}",
+  "supplier_id": "{{supplierId}}",
+  "purchase_date": "2025-10-23T15:00:00Z",
+  "document_file": "facture_004.pdf",
+  "document_type": "INVOICE",
+  "document_refs": [
+    {
+      "name": "Facture",
+      "value": "FAC-2025-004"
+    }
+  ],
+  "import_source": "EXCEL",
+  "excel_file_name": "import_iphones_octobre_2025.xlsx",
+  "articles": [
+    {
+      "article_number": "ART-2025-007",
+      "reference": "IPHONE15PRO-256-BLK",
+      "model_id": "{{modelId1}}",
+      "color_id": "{{colorId1}}",
+      "variant_id": "{{variantId2}}",
+      "pv_ttc": 900000,
+      "pamp": 700000,
+      "tva": 180000,
+      "margin_fcfa": 200000,
+      "margin_percent": 22.22,
+      "condition": "NEW",
+      "status": "AVAILABLE",
+      "use_fcfa": true
+    },
+    {
+      "article_number": "ART-2025-008",
+      "reference": "IPHONE15PRO-256-WHT",
+      "model_id": "{{modelId1}}",
+      "color_id": "{{colorId2}}",
+      "variant_id": "{{variantId2}}",
+      "pv_ttc": 900000,
+      "pamp": 700000,
+      "tva": 180000,
+      "margin_fcfa": 200000,
+      "margin_percent": 22.22,
+      "condition": "NEW",
+      "status": "AVAILABLE",
+      "use_fcfa": true
+    }
+  ]
+}
+
+### ============================================
+### Test 5 : Erreur - Numéro d'article en double
+### ============================================
+POST {{baseUrl}}/api/products/articles
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "STOCK_MANAGER",
+  "store_id": "{{storeId}}",
+  "supplier_id": "{{supplierId}}",
+  "purchase_date": "2025-10-23T16:00:00Z",
+  "document_file": "facture_005.pdf",
+  "document_type": "INVOICE",
+  "import_source": "MANUAL",
+  "articles": [
+    {
+      "article_number": "ART-2025-DUPLICATE",
+      "reference": "TEST-001",
+      "model_id": "{{modelId1}}",
+      "color_id": "{{colorId1}}",
+      "variant_id": "{{variantId1}}",
+      "pv_ttc": 100000,
+      "pamp": 80000,
+      "tva": 20000,
+      "condition": "NEW",
+      "use_fcfa": true
+    },
+    {
+      "article_number": "ART-2025-DUPLICATE",
+      "reference": "TEST-002",
+      "model_id": "{{modelId2}}",
+      "color_id": "{{colorId2}}",
+      "variant_id": "{{variantId2}}",
+      "pv_ttc": 100000,
+      "pamp": 80000,
+      "tva": 20000,
+      "condition": "NEW",
+      "use_fcfa": true
+    }
+  ]
+}
+
+### ============================================
+### Test 6 : Erreur - Champs obligatoires manquants
+### ============================================
+POST {{baseUrl}}/api/products/articles
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "STOCK_MANAGER",
+  "store_id": "{{storeId}}",
+  "supplier_id": "{{supplierId}}",
+  "articles": [
+    {
+      "article_number": "ART-2025-009",
+      "reference": "TEST-MISSING-FIELDS",
+      "model_id": "{{modelId1}}",
+      "color_id": "{{colorId1}}",
+      "pv_ttc": 100000,
+      "pamp": 80000,
+      "use_fcfa": true
+    }
+  ]
+}
+
+### ============================================
+### Test 7 : Erreur - Modèle inexistant
+### ============================================
+POST {{baseUrl}}/api/products/articles
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "STOCK_MANAGER",
+  "store_id": "{{storeId}}",
+  "supplier_id": "{{supplierId}}",
+  "purchase_date": "2025-10-23T17:00:00Z",
+  "document_file": "facture_006.pdf",
+  "document_type": "INVOICE",
+  "import_source": "MANUAL",
+  "articles": [
+    {
+      "article_number": "ART-2025-010",
+      "reference": "TEST-INVALID-MODEL",
+      "model_id": "model_inexistant_999",
+      "color_id": "{{colorId1}}",
+      "variant_id": "{{variantId1}}",
+      "pv_ttc": 100000,
+      "pamp": 80000,
+      "tva": 20000,
+      "condition": "NEW",
+      "use_fcfa": true
+    }
+  ]
+}
+
+### ============================================
+### Test 8 : Erreur - Plus de 5 références de document
+### ============================================
+POST {{baseUrl}}/api/products/articles
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "STOCK_MANAGER",
+  "store_id": "{{storeId}}",
+  "supplier_id": "{{supplierId}}",
+  "purchase_date": "2025-10-23T18:00:00Z",
+  "document_file": "facture_007.pdf",
+  "document_type": "INVOICE",
+  "document_refs": [
+    {"name": "Ref1", "value": "VAL1"},
+    {"name": "Ref2", "value": "VAL2"},
+    {"name": "Ref3", "value": "VAL3"},
+    {"name": "Ref4", "value": "VAL4"},
+    {"name": "Ref5", "value": "VAL5"},
+    {"name": "Ref6", "value": "VAL6"}
+  ],
+  "import_source": "MANUAL",
+  "articles": [
+    {
+      "article_number": "ART-2025-011",
+      "reference": "TEST-TOO-MANY-REFS",
+      "model_id": "{{modelId1}}",
+      "color_id": "{{colorId1}}",
+      "variant_id": "{{variantId1}}",
+      "pv_ttc": 100000,
+      "pamp": 80000,
+      "tva": 20000,
+      "condition": "NEW",
+      "use_fcfa": true
+    }
+  ]
+}
+
+### ============================================
+### Test 9 : Article avec spécifications complexes
+### ============================================
+POST {{baseUrl}}/api/products/articles
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "STOCK_MANAGER",
+  "store_id": "{{storeId}}",
+  "supplier_id": "{{supplierId}}",
+  "purchase_date": "2025-10-23T19:00:00Z",
+  "document_file": "facture_008.pdf",
+  "document_type": "INVOICE",
+  "document_refs": [
+    {
+      "name": "Facture",
+      "value": "FAC-2025-008"
+    },
+    {
+      "name": "Certificat d'authenticité",
+      "value": "CERT-2025-008"
+    }
+  ],
+  "import_source": "MANUAL",
+  "articles": [
+    {
+      "article_number": "ART-2025-012",
+      "reference": "IPHONE15PRO-512-BLK-PREMIUM",
+      "model_reference": "IPHONE-15-PRO-MAX",
+      "description": "iPhone 15 Pro Max 512Go Noir Titanium - Edition Premium",
+      "model_id": "{{modelId1}}",
+      "color_id": "{{colorId1}}",
+      "variant_id": "{{variantId2}}",
+      "pv_ttc": 1500000,
+      "pamp": 1200000,
+      "old_price": 1650000,
+      "tva": 300000,
+      "margin_fcfa": 300000,
+      "margin_percent": 20.00,
+      "specifications": {
+        "screen": "6.7 inches Super Retina XDR",
+        "storage": "512GB",
+        "ram": "8GB",
+        "processor": "A17 Pro",
+        "camera": {
+          "main": "48MP",
+          "telephoto": "12MP",
+          "ultra_wide": "12MP"
+        },
+        "battery": "4422 mAh",
+        "5g": true,
+        "water_resistant": "IP68",
+        "material": "Titanium",
+        "weight": "221g",
+        "colors_available": ["Black Titanium", "White Titanium", "Blue Titanium", "Natural Titanium"],
+        "in_box": ["iPhone", "USB-C Cable", "Documentation"],
+        "warranty": "2 years",
+        "imei": "123456789012345"
+      },
+      "condition": "NEW",
+      "status": "AVAILABLE",
+      "use_fcfa": true
+    }
+  ]
+}
+
+### ============================================
+### Test 10 : Batch de 5 articles (stress test)
+### ============================================
+POST {{baseUrl}}/api/products/articles
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "role": "ADMIN",
+  "store_id": "{{storeId}}",
+  "supplier_id": "{{supplierId}}",
+  "purchase_date": "2025-10-23T20:00:00Z",
+  "document_file": "facture_009.pdf",
+  "document_type": "INVOICE",
+  "document_refs": [
+    {
+      "name": "Facture",
+      "value": "FAC-2025-009"
+    },
+    {
+      "name": "Bon de livraison",
+      "value": "BL-2025-009"
+    }
+  ],
+  "import_source": "EXCEL",
+  "excel_file_name": "batch_import_5_articles.xlsx",
+  "articles": [
+    {
+      "article_number": "ART-2025-013",
+      "reference": "BATCH-001",
+      "model_id": "{{modelId1}}",
+      "color_id": "{{colorId1}}",
+      "variant_id": "{{variantId1}}",
+      "pv_ttc": 850000,
+      "pamp": 650000,
+      "tva": 170000,
+      "condition": "NEW",
+      "use_fcfa": true
+    },
+    {
+      "article_number": "ART-2025-014",
+      "reference": "BATCH-002",
+      "model_id": "{{modelId1}}",
+      "color_id": "{{colorId2}}",
+      "variant_id": "{{variantId1}}",
+      "pv_ttc": 850000,
+      "pamp": 650000,
+      "tva": 170000,
+      "condition": "NEW",
+      "use_fcfa": true
+    },
+    {
+      "article_number": "ART-2025-015",
+      "reference": "BATCH-003",
+      "model_id": "{{modelId2}}",
+      "color_id": "{{colorId1}}",
+      "variant_id": "{{variantId2}}",
+      "pv_ttc": 750000,
+      "pamp": 580000,
+      "tva": 150000,
+      "condition": "LIKE_NEW",
+      "use_fcfa": true
+    },
+    {
+      "article_number": "ART-2025-016",
+      "reference": "BATCH-004",
+      "model_id": "{{modelId2}}",
+      "color_id": "{{colorId2}}",
+      "variant_id": "{{variantId2}}",
+      "pv_ttc": 750000,
+      "pamp": 580000,
+      "tva": 150000,
+      "condition": "NEW",
+      "use_fcfa": true
+    },
+    {
+      "article_number": "ART-2025-017",
+      "reference": "BATCH-005",
+      "model_id": "{{modelId1}}",
+      "color_id": "{{colorId1}}",
+      "variant_id": "{{variantId2}}",
+      "pv_ttc": 900000,
+      "pamp": 700000,
+      "tva": 180000,
+      "condition": "REFURBISHED",
+      "use_fcfa": true
+    }
+  ]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+### 1. GET - Récupérer la liste de tous les fournisseurs
+GET http://localhost:3000/api/produits/Guyane/Apple/Téléphones
+Content-Type: application/json
+### ============================================
+### 1. Récupérer les variantes d'un modèle (Route principale)
+### ============================================
+GET http://localhost:3000/api/produits/Guyane/productId/cmhkicbf600cexdbcuamgxgei
+Content-Type: application/json
+
+### ============================================
+### 1. Récupérer les variantes d'un modèle (Route principale)
+### ============================================
+GET http://localhost:3000/api/products/models/cmhkicbf600cexdbcuamgxgei/productVariant?user_id=cmhjt0ngo0000xd20y2bmfflk&store_id=cmhjt74uf000fxd20isrukr9b&role=SUPER_ADMIN
+Content-Type: application/json
+
+
+
+
+### Récupérer toutes les adresses de l'utilisateur
+GET {{baseUrl}}/api/customer/addresses
+Content-Type: application/json
+
+### ============================================
+### 4. CRÉER UNE ADRESSE
+### ============================================
+
+### Créer une nouvelle adresse (Maison)
+POST {{baseUrl}}/api/customer/addresses
+Content-Type: application/json
+
+{
+  "user_id": "cmhjt0ngo0000xd20y2bmfflk",
+  "label": "Maison",
+  "civility": "MR",
+  "fullName": "Jean DUPONT",
+  "phone": "0696123456",
+  "country": "FR",
+  "city": "Fort-de-France",
+  "postalCode": "97200",
+  "addressLine1": "15 Rue Victxor Hugo",
+  "addressLine2": "Appartement 3B",
+  "isDefaultShipping": true,
+  "isDefaultBilling": false
+}
+
+### ============================================
+GET http://localhost:3000/api/customer/addresses
+Content-Type: application/json

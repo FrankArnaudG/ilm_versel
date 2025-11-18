@@ -1,0 +1,1361 @@
+/**
+ * MODULE DE PUBLIPOSTAGE VISUEL - Next.js + TypeScript + Tailwind CSS
+ * 
+ * GUIDE D&apos;UTILISATION :
+ * 1. Installer les dépendances : npm install xlsx jspdf html2canvas react-hook-form
+ * 2. Placer ce fichier dans /app/publipostage/page.tsx
+ * 3. Créer les composants dans /components/publipostage/
+ * 4. Lancer l'application : npm run dev
+ * 5. Accéder à : http://localhost:3000/publipostage
+ * 
+ * FONCTIONNALITÉS :
+ * - Upload fichier Excel (.xlsx) ou CSV
+ * - Mapping des colonnes avec les champs attendus
+ * - Génération automatique d&apos;étiquettes produits (4 par page A4)
+ * - Aperçu visuel avec pagination
+ * - Export PDF complet
+ */
+
+'use client';
+
+import { useState, useRef, useEffect, ChangeEvent } from 'react';
+import * as XLSX from 'xlsx';
+
+export type ProductData = {
+  model: string;
+  screen: string;
+  os: string;
+  battery: string;
+  cpu: string;
+  camera: string;
+  memory: string;
+  storage: string;
+  connectivity: string;
+  sim: string;
+  note: string;
+  price: string;
+};
+
+export type FieldMapping = {
+  [key in keyof ProductData]: string;
+};
+
+// Configuration des champs attendus avec leurs labels
+export const fieldConfig: FieldMapping = {
+  model: "Nom du modèle",
+  screen: "Taille d&apos;écran",
+  os: "Système d&apos;exploitation",
+  battery: "Batterie",
+  cpu: "Processeur",
+  camera: "Caméra",
+  memory: "Mémoire vive (RAM)",
+  storage: "Stockage",
+  connectivity: "Connectivité",
+  sim: "SIM",
+  note: "Note",
+  price: "Prix"
+};
+
+export default function PublipostagePage() {
+  // États de gestion du workflow
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
+  const [rawData, setRawData] = useState<Record<string, string>[]>([]);
+  const [mappedData, setMappedData] = useState<ProductData[]>([]);
+  const [selectedRows, setSelectedRows] = useState<number[]>([]);
+
+  /**
+   * Callback après upload réussi du fichier
+   * Récupère les en-têtes et les données brutes
+   */
+  const handleFileUploaded = (headers: string[], data: Record<string, string>[]) => {
+    setFileHeaders(headers);
+    setRawData(data);
+    setStep(2);
+    // Sélectionner toutes les lignes par défaut
+    setSelectedRows(data.map((_, index) => index));
+  };
+
+  /**
+   * Callback après validation du mapping
+   * Transforme les données brutes en données formatées
+   */
+  const handleMappingValidated = (mapping: Record<string, string>) => {
+    const transformed = rawData
+      .filter((_, index) => selectedRows.includes(index))
+      .map((row) => {
+        const product: Partial<ProductData> = {};
+        Object.keys(fieldConfig).forEach((field) => {
+          const columnName = mapping[field];
+          product[field as keyof ProductData] = columnName ? row[columnName] || '' : '';
+        });
+        return product as ProductData;
+      });
+    
+    setMappedData(transformed);
+    setStep(3);
+  };
+
+  /**
+   * Retour à l'étape précédente
+   */
+  const handleBack = () => {
+    if (step > 1) {
+      setStep((step - 1) as 1 | 2);
+    }
+  };
+
+  /**
+   * Réinitialiser complètement le module
+   */
+  const handleReset = () => {
+    setStep(1);
+    setFileHeaders([]);
+    setRawData([]);
+    setMappedData([]);
+    setSelectedRows([]);
+  };
+
+  // Calcul du nombre de pages nécessaires (4 étiquettes par page)
+  const totalLabels = mappedData.length;
+  const totalPages = Math.ceil(totalLabels / 4);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* En-tête */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Module de Publipostage
+          </h1>
+          <p className="text-gray-600">
+            Génération automatique d&apos;étiquettes produits à partir d&apos;Excel ou CSV
+          </p>
+        </div>
+
+        {/* Indicateur de progression */}
+        <div className="flex justify-center items-center mb-8 space-x-4">
+          <StepIndicator number={1} label="Upload" active={step === 1} completed={step > 1} />
+          <div className="w-16 h-1 bg-gray-300">
+            <div className={`h-full bg-blue-600 transition-all ${step > 1 ? 'w-full' : 'w-0'}`} />
+          </div>
+          <StepIndicator number={2} label="Mapping" active={step === 2} completed={step > 2} />
+          <div className="w-16 h-1 bg-gray-300">
+            <div className={`h-full bg-blue-600 transition-all ${step > 2 ? 'w-full' : 'w-0'}`} />
+          </div>
+          <StepIndicator number={3} label="Aperçu" active={step === 3} completed={false} />
+        </div>
+
+        {/* Contenu selon l'étape */}
+        <div className="bg-white rounded-xl shadow-lg p-8">
+          {step === 1 && (
+            <FileUploader onFileUploaded={handleFileUploaded} />
+          )}
+
+          {step === 2 && (
+            <MappingForm
+              headers={fileHeaders}
+              fieldConfig={fieldConfig}
+              rawData={rawData}
+              selectedRows={selectedRows}
+              onSelectedRowsChange={setSelectedRows}
+              onValidate={handleMappingValidated}
+              onBack={handleBack}
+            />
+          )}
+
+          {step === 3 && (
+            <div>
+              {/* Résumé */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-6">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-blue-600">{totalLabels}</div>
+                      <div className="text-sm text-gray-600">Étiquettes générées</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-blue-600">{totalPages}</div>
+                      <div className="text-sm text-gray-600">Pages créées</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-blue-600">A4</div>
+                      <div className="text-sm text-gray-600">Prêt à imprimer</div>
+                    </div>
+                  </div>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={handleBack}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                    >
+                      ← Retour
+                    </button>
+                    <button
+                      onClick={handleReset}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                    >
+                      Nouveau fichier
+                    </button>
+                    <ExportPDFButton data={mappedData} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Grille d&apos;aperçu */}
+              <LabelsGrid data={mappedData} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Composant indicateur d&apos;étape
+ */
+function StepIndicator({ number, label, active, completed }: {
+  number: number;
+  label: string;
+  active: boolean;
+  completed: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center">
+      <div
+        className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition ${
+          completed
+            ? 'bg-green-500 text-white'
+            : active
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-300 text-gray-600'
+        }`}
+      >
+        {completed ? '✓' : number}
+      </div>
+      <div className={`text-sm mt-1 ${active ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+
+/**
+ * COMPOSANT : FileUploader
+ * Gestion de l'upload de fichiers Excel (.xlsx) ou CSV
+ * Lecture automatique des en-têtes et des données
+ */
+
+interface FileUploaderProps {
+  onFileUploaded: (headers: string[], data: Record<string, string>[]) => void;
+}
+
+function FileUploader({ onFileUploaded }: FileUploaderProps) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Traitement du fichier uploadé
+   * Supporte .xlsx, .xls et .csv
+   */
+  const processFile = (file: File) => {
+    setIsProcessing(true);
+    setError(null);
+
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        let workbook: XLSX.WorkBook;
+
+        // Traitement différent selon le type de fichier
+        if (file.name.endsWith('.csv')) {
+          const text = new TextDecoder().decode(data as ArrayBuffer);
+          workbook = XLSX.read(text, { type: 'string' });
+        } else {
+          workbook = XLSX.read(data, { type: 'array' });
+        }
+
+        // Récupération de la première feuille
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as (string | number)[][];
+
+        if (jsonData.length === 0) {
+          throw new Error('Le fichier est vide');
+        }
+
+        const headers = jsonData[0].map(h => String(h));
+
+        const rows = jsonData.slice(1).map((row) => {
+          const rowData: Record<string, string> = {};
+          headers.forEach((header, index) => {
+            rowData[header] = row[index] !== undefined ? String(row[index]) : '';
+          });
+          return rowData;
+        });
+
+        // Filtrer les lignes complètement vides
+        const filteredRows = rows.filter((row) => 
+          Object.values(row).some((val) => val !== '')
+        );
+
+        if (filteredRows.length === 0) {
+          throw new Error('Aucune donnée trouvée dans le fichier');
+        }
+
+        // Callback avec les données traitées
+        onFileUploaded(headers, filteredRows);
+      } catch (err) {
+        console.error('Erreur lors du traitement du fichier:', err);
+        setError(err instanceof Error ? err.message : 'Erreur lors de la lecture du fichier');
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+
+    reader.onerror = () => {
+      setError('Erreur lors de la lecture du fichier');
+      setIsProcessing(false);
+    };
+
+    // Lecture du fichier
+    reader.readAsArrayBuffer(file);
+  };
+
+  /**
+   * Gestion du changement de fichier (input classique)
+   */
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      validateAndProcess(file);
+    }
+  };
+
+  /**
+   * Validation et traitement du fichier
+   */
+  const validateAndProcess = (file: File) => {
+    const validExtensions = ['.xlsx', '.xls', '.csv'];
+    const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+
+    if (!validExtensions.includes(fileExtension)) {
+      setError('Format de fichier non supporté. Veuillez utiliser .xlsx, .xls ou .csv');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) { // 10 MB max
+      setError('Le fichier est trop volumineux (max 10 MB)');
+      return;
+    }
+
+    processFile(file);
+  };
+
+  /**
+   * Gestion du drag & drop
+   */
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      validateAndProcess(file);
+    }
+  };
+
+  /**
+   * Ouverture du sélecteur de fichiers
+   */
+  const handleClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  return (
+    <div className="w-full max-w-2xl mx-auto">
+      <h2 className="text-2xl font-bold text-gray-800 mb-4 text-center">
+        Importer votre fichier
+      </h2>
+      <p className="text-gray-600 text-center mb-6">
+        Formats acceptés : Excel (.xlsx, .xls) ou CSV (.csv)
+      </p>
+
+      {/* Zone de drag & drop */}
+      <div
+        onClick={handleClick}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`
+          relative border-2 border-dashed rounded-xl p-12 text-center cursor-pointer
+          transition-all duration-200 ease-in-out
+          ${isDragging 
+            ? 'border-blue-500 bg-blue-50 scale-105' 
+            : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50'
+          }
+          ${isProcessing ? 'opacity-50 cursor-wait' : ''}
+        `}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          onChange={handleFileChange}
+          className="hidden"
+          disabled={isProcessing}
+        />
+
+        {isProcessing ? (
+          <div className="space-y-4">
+            <div className="animate-spin w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto" />
+            <p className="text-gray-600 font-medium">Traitement du fichier en cours...</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <svg
+              className="w-16 h-16 mx-auto text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              />
+            </svg>
+            <div>
+              <p className="text-lg font-semibold text-gray-700">
+                Glissez-déposez votre fichier ici
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                ou cliquez pour sélectionner un fichier
+              </p>
+            </div>
+            <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+              <span>📊 Excel</span>
+              <span>•</span>
+              <span>📄 CSV</span>
+              <span>•</span>
+              <span>Max 10 MB</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Affichage des erreurs */}
+      {error && (
+        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start">
+            <svg
+              className="w-5 h-5 text-red-500 mr-2 flex-shrink-0 mt-0.5"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <div>
+              <h3 className="text-sm font-medium text-red-800">Erreur</h3>
+              <p className="text-sm text-red-700 mt-1">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Informations complémentaires */}
+      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <h3 className="text-sm font-semibold text-blue-900 mb-2">
+          💡 Conseils pour un meilleur résultat
+        </h3>
+        <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+          <li>Assurez-vous que la première ligne contient les en-têtes de colonnes</li>
+          <li>Évitez les cellules fusionnées dans votre fichier</li>
+          <li>Les colonnes vides seront ignorées</li>
+          <li>Vous pourrez sélectionner les lignes à inclure à l&apos;étape suivante</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+
+
+/**
+ * COMPOSANT : MappingForm
+ * Interface de correspondance entre les colonnes du fichier et les champs attendus
+ * Permet également de sélectionner/désélectionner les lignes à inclure
+ */
+
+interface MappingFormProps {
+  headers: string[];
+  fieldConfig: FieldMapping;
+  rawData: Record<string, string>[];
+  selectedRows: number[];
+  onSelectedRowsChange: (selected: number[]) => void;
+  onValidate: (mapping: Record<string, string>) => void;
+  onBack: () => void;
+}
+
+function MappingForm({
+  headers,
+  fieldConfig,
+  rawData,
+  selectedRows,
+  onSelectedRowsChange,
+  onValidate,
+  onBack
+}: MappingFormProps) {
+  // État du mapping : clé = champ attendu, valeur = colonne du fichier
+  const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [autoMapped, setAutoMapped] = useState(false);
+
+  /**
+   * Auto-détection des correspondances au chargement
+   * Compare les en-têtes du fichier avec les labels des champs
+   */
+  useEffect(() => {
+    if (!autoMapped && headers.length > 0) {
+      const initialMapping: Record<string, string> = {};
+      
+      Object.entries(fieldConfig).forEach(([fieldKey, fieldLabel]) => {
+        // Recherche exacte (insensible à la casse)
+        const exactMatch = headers.find(
+          (h) => h.toLowerCase() === fieldLabel.toLowerCase()
+        );
+        
+        if (exactMatch) {
+          initialMapping[fieldKey] = exactMatch;
+        } else {
+          // Recherche partielle (mots-clés)
+          const keywords = fieldLabel.toLowerCase().split(' ');
+          const partialMatch = headers.find((h) => {
+            const headerLower = h.toLowerCase();
+            return keywords.some((keyword) => headerLower.includes(keyword));
+          });
+          
+          if (partialMatch) {
+            initialMapping[fieldKey] = partialMatch;
+          }
+        }
+      });
+      
+      setMapping(initialMapping);
+      setAutoMapped(true);
+    }
+  }, [headers, fieldConfig, autoMapped]);
+
+  /**
+   * Mise à jour d&apos;une correspondance
+   */
+  const handleMappingChange = (fieldKey: string, columnName: string) => {
+    setMapping((prev) => ({
+      ...prev,
+      [fieldKey]: columnName
+    }));
+  };
+
+  /**
+   * Sélection/désélection d&apos;une ligne
+   */
+  const toggleRowSelection = (index: number) => {
+    if (selectedRows.includes(index)) {
+      onSelectedRowsChange(selectedRows.filter((i) => i !== index));
+    } else {
+      onSelectedRowsChange([...selectedRows, index]);
+    }
+  };
+
+  /**
+   * Sélectionner toutes les lignes
+   */
+  const selectAll = () => {
+    onSelectedRowsChange(rawData.map((_, index) => index));
+  };
+
+  /**
+   * Désélectionner toutes les lignes
+   */
+  const deselectAll = () => {
+    onSelectedRowsChange([]);
+  };
+
+  /**
+   * Validation du mapping
+   */
+  const handleValidate = () => {
+    if (selectedRows.length === 0) {
+      alert('Veuillez sélectionner au moins une ligne');
+      return;
+    }
+
+    // Vérifier qu'au moins un champ important est mappé
+    const hasCriticalMapping = mapping.model || mapping.price;
+    if (!hasCriticalMapping) {
+      const confirm = window.confirm(
+        'Aucun champ "Modèle" ou "Prix" n\'est mappé. Voulez-vous continuer quand même ?'
+      );
+      if (!confirm) return;
+    }
+
+    onValidate(mapping);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          Correspondance des colonnes
+        </h2>
+        <p className="text-gray-600">
+          Associez les colonnes de votre fichier aux champs des étiquettes
+        </p>
+      </div>
+
+      {/* Tableau de mapping */}
+      <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          Mapping des champs
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {Object.entries(fieldConfig).map(([fieldKey, fieldLabel]) => (
+            <div key={fieldKey} className="flex items-center space-x-3">
+              <label className="w-40 text-sm font-medium text-gray-700 flex-shrink-0">
+                {fieldLabel}
+                {(fieldKey === 'model' || fieldKey === 'price') && (
+                  <span className="text-red-500 ml-1">*</span>
+                )}
+              </label>
+              <select
+                value={mapping[fieldKey] || ''}
+                onChange={(e) => handleMappingChange(fieldKey, e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+              >
+                <option value="">-- Ignorer --</option>
+                {headers.map((header) => (
+                  <option key={header} value={header}>
+                    {header}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-gray-500 mt-3">
+          * Champs recommandés pour un meilleur rendu
+        </p>
+      </div>
+
+      {/* Sélection des lignes */}
+      <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">
+            Sélection des produits ({selectedRows.length}/{rawData.length})
+          </h3>
+          <div className="space-x-2">
+            <button
+              onClick={selectAll}
+              className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+            >
+              Tout sélectionner
+            </button>
+            <button
+              onClick={deselectAll}
+              className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+            >
+              Tout désélectionner
+            </button>
+          </div>
+        </div>
+
+        {/* Tableau des données */}
+        <div className="max-h-96 overflow-auto border border-gray-300 rounded-lg">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-100 sticky top-0">
+              <tr>
+                <th className="px-3 py-2 text-left w-12">
+                  <input
+                    type="checkbox"
+                    checked={selectedRows.length === rawData.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        selectAll();
+                      } else {
+                        deselectAll();
+                      }
+                    }}
+                    className="w-4 h-4"
+                  />
+                </th>
+                <th className="px-3 py-2 text-left font-semibold text-gray-700">#</th>
+                {headers.slice(0, 5).map((header) => (
+                  <th key={header} className="px-3 py-2 text-left font-semibold text-gray-700">
+                    {header}
+                  </th>
+                ))}
+                {headers.length > 5 && (
+                  <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                    ... +{headers.length - 5} colonnes
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {rawData.map((row, index) => (
+                <tr
+                  key={index}
+                  className={`border-t border-gray-200 hover:bg-blue-50 transition ${
+                    selectedRows.includes(index) ? 'bg-blue-50' : 'bg-white'
+                  }`}
+                >
+                  <td className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedRows.includes(index)}
+                      onChange={() => toggleRowSelection(index)}
+                      className="w-4 h-4"
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-gray-500">{index + 1}</td>
+                  {headers.slice(0, 5).map((header) => (
+                    <td key={header} className="px-3 py-2 text-gray-800 truncate max-w-xs">
+                      {row[header] || '-'}
+                    </td>
+                  ))}
+                  {headers.length > 5 && (
+                    <td className="px-3 py-2 text-gray-400 text-xs">...</td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Boutons d&apos;action */}
+      <div className="flex justify-between items-center pt-4">
+        <button
+          onClick={onBack}
+          className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium"
+        >
+          ← Retour
+        </button>
+        <button
+          onClick={handleValidate}
+          disabled={selectedRows.length === 0}
+          className={`px-6 py-3 rounded-lg font-medium transition ${
+            selectedRows.length === 0
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
+        >
+          Valider et générer les étiquettes →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * COMPOSANT : LabelPreview
+ * Affichage d&apos;une étiquette produit individuelle
+ * Design conforme au modèle : logo I Love Mobile, caractéristiques, prix
+ */
+
+interface LabelPreviewProps {
+  data: ProductData;
+}
+
+/**
+ * COMPOSANT : LabelPreview
+ * Affichage d&apos;une étiquette produit individuelle
+ * Design avec logo image, caractéristiques alignées et prix en grand
+ */
+
+import Image from 'next/image';
+
+interface LabelPreviewProps {
+  data: ProductData;
+}
+
+/**
+ * COMPOSANT : LabelPreview
+ * Affichage d&apos;une étiquette produit individuelle
+ * Design sobre avec logo image, caractéristiques à puces alignées à gauche, prix en bas
+ */
+
+interface LabelPreviewProps {
+  data: ProductData;
+}
+
+function LabelPreview({ data }: LabelPreviewProps) {
+  return (
+    <div className="label-card border border-black bg-white p-4 flex flex-col h-full rounded-none">
+      {/* Logo I Love Mobile - Image centrée */}
+      <div className="flex justify-center mb-2.5">
+        <Image
+          src="/assets/logo_ilm.png"
+          alt="I Love Mobile"
+          width={150}
+          height={75}
+          className="object-contain"
+          priority
+        />
+      </div>
+
+      {/* Modèle du téléphone, majuscules, centré */}
+      <div className="mb-3 text-center">
+        <h3 className="text-xl font-bold text-black uppercase underline leading-tight">
+          {data.model || 'MODÈLE NON DÉFINI'}
+        </h3>
+      </div>
+
+      {/* Caractéristiques principales - À gauche avec puces */}
+      <div className="flex-grow mb-3">
+        <div className="text-base text-gray-800 leading-relaxed space-y-0.5">
+          {data.screen && (
+            <div className="flex items-start">
+              <span className="mr-1.5">•</span>
+              <span>
+                <span className="font-bold">Écran:</span> {data.screen}
+              </span>
+            </div>
+          )}
+          {data.os && (
+            <div className="flex items-start">
+              <span className="mr-1.5">•</span>
+              <span>
+                <span className="font-bold">OS:</span> {data.os}
+              </span>
+            </div>
+          )}
+          {data.battery && (
+            <div className="flex items-start">
+              <span className="mr-1.5">•</span>
+              <span>
+                <span className="font-bold">Batterie:</span> {data.battery}
+              </span>
+            </div>
+          )}
+          {data.cpu && (
+            <div className="flex items-start">
+              <span className="mr-1.5">•</span>
+              <span>
+                <span className="font-bold">CPU:</span> {data.cpu}
+              </span>
+            </div>
+          )}
+          {data.camera && (
+            <div className="flex items-start">
+              <span className="mr-1.5">•</span>
+              <span>
+                <span className="font-bold">Caméra:</span> {data.camera}
+              </span>
+            </div>
+          )}
+          {data.memory && (
+            <div className="flex items-start">
+              <span className="mr-1.5">•</span>
+              <span>
+                <span className="font-bold">RAM:</span> {data.memory}
+              </span>
+            </div>
+          )}
+          {data.storage && (
+            <div className="flex items-start">
+              <span className="mr-1.5">•</span>
+              <span>
+                <span className="font-bold">Stockage:</span> {data.storage}
+              </span>
+            </div>
+          )}
+          {data.connectivity && (
+            <div className="flex items-start">
+              <span className="mr-1.5">•</span>
+              <span>
+                <span className="font-bold">Réseau:</span> {data.connectivity}
+              </span>
+            </div>
+          )}
+          {data.sim && (
+            <div className="flex items-start">
+              <span className="mr-1.5">•</span>
+              <span>
+                <span className="font-bold">SIM:</span> {data.sim}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Prix uniquement - Section inférieure avec bordure */}
+      <div className="mt-auto pt-3 border-t border-gray-300">
+        {data.price && (
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-700">
+              {formatPrice(data.price)}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * COMPOSANT : LabelsGrid
+ * Affichage de toutes les étiquettes en grille (4 par page A4)
+ * Mise en page : 2 colonnes × 2 lignes par page
+ */
+
+
+interface LabelsGridProps {
+  data: ProductData[];
+}
+
+function LabelsGrid({ data }: LabelsGridProps) {
+  // Grouper les données par page (4 étiquettes par page)
+  const LABELS_PER_PAGE = 4;
+  const pages: ProductData[][] = [];
+  
+  for (let i = 0; i < data.length; i += LABELS_PER_PAGE) {
+    pages.push(data.slice(i, i + LABELS_PER_PAGE));
+  }
+
+  return (
+    <div className="space-y-8">
+      <h2 className="text-2xl font-bold text-gray-800 text-center mb-6">
+        Aperçu des étiquettes
+      </h2>
+
+      {pages.map((pageData, pageIndex) => (
+        <div key={pageIndex} className="page-container">
+          {/* Indicateur de page */}
+          <div className="flex items-center justify-between mb-4 px-4">
+            <div className="text-sm text-gray-600">
+              Page {pageIndex + 1} / {pages.length}
+            </div>
+            <div className="text-sm text-gray-600">
+              Étiquettes {pageIndex * LABELS_PER_PAGE + 1} à{' '}
+              {Math.min((pageIndex + 1) * LABELS_PER_PAGE, data.length)} sur {data.length}
+            </div>
+          </div>
+
+          {/* Page A4 simulée */}
+          <div
+            id={`page-${pageIndex}`}
+            className="a4-page bg-white shadow-lg mx-auto p-8 rounded-lg"
+            style={{
+              width: '210mm',
+              minHeight: '297mm',
+              maxWidth: '100%'
+            }}
+          >
+            {/* Grille 2x2 */}
+            <div className="grid grid-cols-2 gap-6 h-full">
+              {pageData.map((product, labelIndex) => (
+                <div
+                  key={labelIndex}
+                  className="label-wrapper"
+                  style={{
+                    minHeight: '135mm'
+                  }}
+                >
+                  <LabelPreview data={product} />
+                </div>
+              ))}
+              
+              {/* Remplissage pour les cases vides si moins de 4 étiquettes sur la dernière page */}
+              {pageData.length < LABELS_PER_PAGE &&
+                Array.from({ length: LABELS_PER_PAGE - pageData.length }).map((_, i) => (
+                  <div
+                    key={`empty-${i}`}
+                    className="label-wrapper border border-dashed border-gray-300 rounded-lg flex items-center justify-center text-gray-400"
+                    style={{
+                      minHeight: '135mm'
+                    }}
+                  >
+                    <span className="text-sm">Espace disponible</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* Informations pour l'impression */}
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-4xl mx-auto">
+        <h3 className="text-sm font-semibold text-yellow-900 mb-2">
+          📄 Conseils pour l&apos;impression
+        </h3>
+        <ul className="text-sm text-yellow-800 space-y-1 list-disc list-inside">
+          <li>Format : A4 (210 × 297 mm)</li>
+          <li>Orientation : Portrait</li>
+          <li>Marges : Normales (environ 2 cm de chaque côté)</li>
+          <li>Qualité : Haute résolution pour une meilleure lisibilité</li>
+          <li>Papier : Papier photo ou autocollant recommandé</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * COMPOSANT : ExportPDFButton
+ * Génération et export du PDF avec toutes les étiquettes
+ * Utilise html2canvas pour capturer les pages et jspdf pour créer le PDF
+ */
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+
+interface ExportPDFButtonProps {
+  data: ProductData[];
+}
+
+function ExportPDFButton({ data }: ExportPDFButtonProps) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  /**
+   * Génération du PDF
+   * Capture chaque page A4 et l'ajoute au PDF
+   */
+  const generatePDF = async () => {
+    try {
+      setIsGenerating(true);
+      setProgress(0);
+
+      // Calculer le nombre de pages
+      const LABELS_PER_PAGE = 4;
+      const totalPages = Math.ceil(data.length / LABELS_PER_PAGE);
+
+      // Créer le document PDF (format A4 : 210 × 297 mm)
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // Capturer et ajouter chaque page
+      for (let i = 0; i < totalPages; i++) {
+        const pageElement = document.getElementById(`page-${i}`);
+        
+        if (!pageElement) {
+          console.warn(`Page ${i} non trouvée`);
+          continue;
+        }
+
+        // Mettre à jour la progression
+        setProgress(Math.round(((i + 1) / totalPages) * 100));
+
+        // Attendre un peu pour laisser le navigateur se mettre à jour
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Capturer la page en haute résolution
+        const canvas = await html2canvas(pageElement, {
+            useCORS: true,
+            logging: false,
+            background: '#ffffff'
+        });
+
+        // Convertir en image
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+        // Ajouter une nouvelle page si ce n'est pas la première
+        if (i > 0) {
+          pdf.addPage();
+        }
+
+        // Dimensions A4 en mm
+        const pdfWidth = 210;
+        const pdfHeight = 297;
+
+        // Ajouter l'image au PDF (pleine page)
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      }
+
+      // Télécharger le PDF
+      const filename = `etiquettes-produits-${new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(filename);
+
+      setProgress(100);
+      
+      // Message de succès
+      setTimeout(() => {
+        alert(`✅ PDF généré avec succès !\n\n${totalPages} page(s) - ${data.length} étiquette(s)`);
+        setIsGenerating(false);
+        setProgress(0);
+      }, 500);
+
+    } catch (error) {
+      console.error('Erreur lors de la génération du PDF:', error);
+      alert('❌ Erreur lors de la génération du PDF. Veuillez réessayer.');
+      setIsGenerating(false);
+      setProgress(0);
+    }
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={generatePDF}
+        disabled={isGenerating || data.length === 0}
+        className={`px-6 py-3 rounded-lg font-medium transition flex items-center space-x-2 ${
+          isGenerating || data.length === 0
+            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            : 'bg-green-600 text-white hover:bg-green-700 shadow-lg hover:shadow-xl'
+        }`}
+      >
+        {isGenerating ? (
+          <>
+            <svg
+              className="animate-spin h-5 w-5 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+            <span>Génération... {progress}%</span>
+          </>
+        ) : (
+          <>
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            <span>Télécharger le PDF</span>
+          </>
+        )}
+      </button>
+
+      {/* Barre de progression */}
+      {isGenerating && (
+        <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gray-200 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-green-600 transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/**
+ * UTILITAIRES : Fonctions helpers pour le module de publipostage
+ */
+
+/**
+ * Formate un prix en euros
+ * Accepte différents formats d&apos;entrée et normalise l'affichage
+ * 
+ * Exemples :
+ * - "109" → "109,00 €"
+ * - "109.00" → "109,00 €"
+ * - "109,00€" → "109,00 €"
+ * - "109.99" → "109,99 €"
+ * - "1099" → "1 099,00 €"
+ */
+export function formatPrice(price: string | number): string {
+  if (!price) return '0,00 €';
+
+  // Convertir en string et nettoyer
+  let priceStr = String(price)
+    .trim()
+    .replace(/\s/g, '') // Supprimer les espaces
+    .replace(/€/g, ''); // Supprimer le symbole €
+
+  // Remplacer la virgule par un point pour la conversion numérique
+  priceStr = priceStr.replace(',', '.');
+
+  // Convertir en nombre
+  const priceNum = parseFloat(priceStr);
+
+  // Vérifier si c'est un nombre valide
+  if (isNaN(priceNum)) {
+    return price.toString(); // Retourner tel quel si non valide
+  }
+
+  // Formater avec séparateurs de milliers et 2 décimales
+  const formatted = priceNum.toLocaleString('fr-FR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  return `${formatted} €`;
+}
+
+/**
+ * Normalise une note sur 10
+ * Accepte différents formats et retourne une string formatée
+ * 
+ * Exemples :
+ * - "8.1" → "8.1"
+ * - "8,5" → "8.5"
+ * - 7 → "7.0"
+ */
+export function formatNote(note: string | number): string {
+  if (!note) return '';
+
+  // Convertir en string et nettoyer
+  const noteStr = String(note)
+    .trim()
+    .replace(',', '.');
+
+  const noteNum = parseFloat(noteStr);
+
+  if (isNaN(noteNum)) {
+    return note.toString();
+  }
+
+  // Limiter entre 0 et 10
+  const normalized = Math.max(0, Math.min(10, noteNum));
+
+  // Retourner avec 1 décimale
+  return normalized.toFixed(1);
+}
+
+/**
+ * Tronque un texte à une longueur maximale
+ * Ajoute "..." si le texte est tronqué
+ */
+export function truncateText(text: string, maxLength: number): string {
+  if (!text || text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + '...';
+}
+
+/**
+ * Nettoie et normalise une valeur de cellule Excel/CSV
+ * Supprime les espaces superflus, les retours à la ligne, etc.
+ */
+export function cleanCellValue(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  
+  return String(value)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\n/g, ' ');
+}
+
+/**
+ * Détecte automatiquement le type de devise dans un texte
+ */
+export function detectCurrency(text: string): string {
+  const currencies = ['€', '$', '£', 'EUR', 'USD', 'GBP'];
+  
+  for (const currency of currencies) {
+    if (text.includes(currency)) {
+      return currency;
+    }
+  }
+  
+  return '€'; // Par défaut
+}
+
+/**
+ * Valide si une chaîne est un prix valide
+ */
+export function isValidPrice(price: string): boolean {
+  if (!price) return false;
+  
+  const cleaned = price.replace(/[€$£\s]/g, '').replace(',', '.');
+  const num = parseFloat(cleaned);
+  
+  return !isNaN(num) && num >= 0;
+}
+
+/**
+ * Génère un ID unique simple
+ */
+export function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * Télécharge un fichier Blob
+ */
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Formatte une date au format français
+ */
+export function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat('fr-FR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(date);
+}
+
+/**
+ * Compte le nombre de pages nécessaires pour un nombre d&apos;étiquettes donné
+ */
+export function calculatePages(labelCount: number, labelsPerPage: number = 4): number {
+  return Math.ceil(labelCount / labelsPerPage);
+}
