@@ -1,37 +1,62 @@
-// middleware.ts - VERSION SANS NEXTAUTH
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { authRoutes, protectedRoutes, profileSetupRoute, DEFAULT_REDIRECT } from "./ts/routes"
+// middleware.ts
+import { auth } from "./ts/auth"
+import { 
+    authRoutes, 
+    DEFAULT_REDIRECT, 
+    protectedRoutes, 
+    profileSetupRoute 
+} from "./ts/routes"
 
-export function middleware(request: NextRequest) {
-    const { pathname } = request.nextUrl
-    
+export default auth((req) => {
+    const { nextUrl } = req
+    const isLoggedIn = !!req.auth  // ✅ NextAuth gère la session
+
+    const isAuthRoute = authRoutes.includes(nextUrl.pathname)
+    const isProtectedRoute = protectedRoutes.some(route => {
+        if (route.endsWith('/*')) {
+            return nextUrl.pathname.startsWith(route.replace('/*', ''))
+        }
+        return nextUrl.pathname === route
+    })
+    const isProfileSetup = nextUrl.pathname === profileSetupRoute
+
     // Permettre les routes API
-    if (pathname.startsWith('/api/')) {
-        return NextResponse.next()
+    if (nextUrl.pathname.startsWith('/api/')) {
+        return
     }
 
-    // Vérifier le token de session (cookie next-auth)
-    const sessionToken = request.cookies.get('next-auth.session-token') || 
-                        request.cookies.get('__Secure-next-auth.session-token')
-    
-    const isLoggedIn = !!sessionToken
-    const isAuthRoute = authRoutes.includes(pathname)
-    const isPublicRoute = protectedRoutes.includes(pathname)
-    const isProfileSetup = pathname === profileSetupRoute
+    if (isLoggedIn) {
+        const hasCompletedProfile = !!req.auth?.user?.name
 
-    // Si connecté et sur route d'auth, rediriger vers accueil
-    if (isLoggedIn && isAuthRoute) {
-        return NextResponse.redirect(new URL(DEFAULT_REDIRECT, request.url))
+        // Redirection vers setup si profil incomplet
+        if (!hasCompletedProfile && !isProfileSetup) {
+            return Response.redirect(new URL(profileSetupRoute, nextUrl))
+        }
+
+        // Redirection depuis setup si profil complet
+        if (hasCompletedProfile && isProfileSetup) {
+            return Response.redirect(new URL(DEFAULT_REDIRECT, nextUrl))
+        }
+
+        // Redirection depuis routes auth si connecté
+        if (isAuthRoute) {
+            const redirectUrl = hasCompletedProfile ? DEFAULT_REDIRECT : profileSetupRoute
+            return Response.redirect(new URL(redirectUrl, nextUrl))
+        }
+
+        return
     }
 
-    // Si non connecté et route protégée
-    if (!isLoggedIn && !isPublicRoute && !isAuthRoute) {
-        return NextResponse.redirect(new URL('/signIn', request.url))
+    // Non connecté : bloquer les routes protégées
+    if (isProtectedRoute || isProfileSetup) {
+        return Response.redirect(new URL('/signIn', nextUrl))
     }
 
-    return NextResponse.next()
-}
+    // Autoriser les routes auth pour non-connectés
+    if (isAuthRoute) {
+        return
+    }
+})
 
 export const config = {
     matcher: [
