@@ -2,7 +2,10 @@
 //les routes de vu public
 export const publicRoutes = [
     "/",
-    "/view"
+    "/view",
+    "/Guadeloupe",
+    "/Martinique",
+    "/Guyane"
 ]
 
 //les routes d'authentifications

@@ -26,9 +26,9 @@ export function middleware(request: NextRequest) {
     }
 
     // Si non connecté et route protégée
-    // if (!isLoggedIn && !isPublicRoute && !isAuthRoute) {
-    //     return NextResponse.redirect(new URL('/signIn', request.url))
-    // }
+    if (!isLoggedIn && !isPublicRoute && !isAuthRoute) {
+        return NextResponse.redirect(new URL('/signIn', request.url))
+    }
 
     return NextResponse.next()
 }
