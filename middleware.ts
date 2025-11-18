@@ -131,7 +131,7 @@ export const config = {
 
 // import authConfig from "./ts/auth.config"
 // import NextAuth from "next-auth"
-// import { apiAuthPrefix, authRoutes, DEFAULT_REDIRECT, protectedRoutes, profileSetupRoute } from "./ts/routes"
+// import { apiAuthPrefix, authRoutes, DEFAULT_REDIRECT, publicRoutes, profileSetupRoute } from "./ts/routes"
 
 // const { auth } = NextAuth(authConfig)
 
@@ -139,7 +139,7 @@ export const config = {
 //     const { nextUrl } = req
 //     const isLoggedIn = !!req.auth
 
-//     const isPublicRoutes = protectedRoutes.includes(nextUrl.pathname)
+//     const isPublicRoutes = publicRoutes.includes(nextUrl.pathname)
 //     const isAuthRoutes = authRoutes.includes(nextUrl.pathname)
 //     const isApiAuthPrefix = nextUrl.pathname.startsWith(apiAuthPrefix)
 //     const isProfileSetupRoute = nextUrl.pathname === profileSetupRoute
@@ -179,10 +179,10 @@ export const config = {
 //         return
 //     }
 
-//     // Si l'utilisateur n'est pas connecté et tente d'accéder à une route protégée
-//     if (!isPublicRoutes) {
-//         return Response.redirect(new URL("/signIn", nextUrl))
-//     }
+//     // // Si l'utilisateur n'est pas connecté et tente d'accéder à une route protégée
+//     // if (!isPublicRoutes) {
+//     //     return Response.redirect(new URL("/signIn", nextUrl))
+//     // }
 // })
 
 // export const config = {
