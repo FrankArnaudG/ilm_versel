@@ -2,7 +2,7 @@ import { Resend } from 'resend'
 
 const resend = new Resend(process.env.AUTH_RESEND_KEY)
 
-const domain = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+const domain = process.env.ILM_URL || 'http://localhost:3000'
 
 /**
  * Envoie un email de vérification avec un lien de confirmation
