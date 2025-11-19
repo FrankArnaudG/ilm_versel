@@ -12,9 +12,9 @@ export type Locality = 'Martinique' | 'Guadeloupe' | 'Guyane';
  * Configuration des stores par localité
  */
 export const LOCALITY_STORE_MAP: Record<Locality, string> = {
-  Martinique: 'cmhnnz9gk000exdr0q25cpqcu',
-  Guadeloupe: 'cmhkfvgu6000txdbcf560322v',
-  Guyane: 'cmhp99zbd0007xd3wax98iddg',
+  Martinique: 'cmi4snknd0001l504k6gnqooe',
+  Guadeloupe: 'cmi4sphir0005l504w3hc5iz6',
+  Guyane: 'cmi4ru9fr0001lb04afmsnkf4',
 } as const;
 
 /**
